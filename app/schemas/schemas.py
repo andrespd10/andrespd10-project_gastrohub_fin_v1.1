@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, condecimal, constr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 from app.models.enums import UserRole, MesaEstado, PedidoEstado, DetallePedidoEstado
 
@@ -9,27 +9,27 @@ from app.models.enums import UserRole, MesaEstado, PedidoEstado, DetallePedidoEs
 # ------------------------
 # TIPOS
 # ------------------------
-Money = condecimal(max_digits=10, decimal_places=2)
+# Atención: Se usa Decimal con validaciones en los campos.
 
 
 # ------------------------
 # USUARIO
 # ------------------------
 class UsuarioBase(BaseModel):
-    nombre: constr(min_length=2, max_length=100)
+    nombre: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     rol: UserRole
     activo: bool = True
 
 
 class UsuarioCreate(UsuarioBase):
-    password: constr(min_length=8)
+    password: str = Field(..., min_length=8)
 
 
 class UsuarioUpdate(BaseModel):
-    nombre: Optional[constr(min_length=2, max_length=100)] = None
+    nombre: Optional[str] = Field(None, min_length=2, max_length=100)
     email: Optional[EmailStr] = None
-    password: Optional[constr(min_length=8)] = None
+    password: Optional[str] = Field(None, min_length=8)
     rol: Optional[UserRole] = None
     activo: Optional[bool] = None
 
@@ -44,9 +44,9 @@ class UsuarioResponse(UsuarioBase):
 # PRODUCTO
 # ------------------------
 class ProductoBase(BaseModel):
-    nombre: constr(min_length=1, max_length=200)
-    descripcion: Optional[constr(max_length=500)] = None
-    precio: Money
+    nombre: str = Field(..., min_length=1, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio: Decimal = Field(..., gt=0)
     disponible: bool = True
 
 
@@ -55,9 +55,9 @@ class ProductoCreate(ProductoBase):
 
 
 class ProductoUpdate(BaseModel):
-    nombre: Optional[constr(min_length=1, max_length=200)] = None
-    descripcion: Optional[constr(max_length=500)] = None
-    precio: Optional[Money] = None
+    nombre: Optional[str] = Field(None, min_length=1, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=500)
+    precio: Optional[Decimal] = Field(None, gt=0)
     disponible: Optional[bool] = None
 
 
@@ -146,8 +146,8 @@ class DetallePedidoResponse(BaseModel):
     pedido_id: int
     producto_id: int
     cantidad: int
-    precio_unitario: Money
-    subtotal: Money
+    precio_unitario: Decimal = Field(..., gt=0)
+    subtotal: Decimal = Field(..., gt=0)
     estado: DetallePedidoEstado
 
     model_config = ConfigDict(from_attributes=True)
@@ -167,7 +167,7 @@ class PagoCreate(PagoBase):
 class PagoResponse(BaseModel):
     id: int
     pedido_id: int
-    total: Money
+    total: Decimal = Field(..., gt=0)
     fecha: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -188,7 +188,7 @@ class TokenData(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: constr(min_length=8)
+    password: str = Field(..., min_length=8)
 
 
 class OTPRequest(BaseModel):
@@ -201,7 +201,7 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     token: str
-    new_password: constr(min_length=8)
+    new_password: str = Field(..., min_length=8)
 
 
 # Forward refs

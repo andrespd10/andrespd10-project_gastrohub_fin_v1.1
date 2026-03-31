@@ -5,11 +5,14 @@ import random
 
 from app.db.session import get_db
 from app.services.usuario import UsuarioService
+from app.services.exceptions import ForbiddenError, BadRequestError
 from app.schemas.schemas import (
     LoginRequest,
     Token,
     PasswordResetRequest,
     PasswordResetConfirm,
+    UsuarioCreate,
+    UsuarioResponse
 )
 from app.core.security import (
     verify_password,
@@ -17,7 +20,6 @@ from app.core.security import (
     decode_token,
     TokenType,
 )
-# ⚠️ NO importar get_password_hash aquí (lo hace el service)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -26,16 +28,29 @@ _otp_storage: dict[str, tuple[str, datetime]] = {}
 
 
 # ------------------------
-# UTILIDADES OTP
+# 🟢 REGISTRAR (NUEVO 🔥)
 # ------------------------
+@router.post("/register", response_model=UsuarioResponse)
+def register(payload: UsuarioCreate, db: Session = Depends(get_db)):
+    """
+    Registro público.
 
-def _generate_otp() -> str:
-    """Genera un código OTP de 6 dígitos."""
-    return f"{random.randint(100000, 999999)}"
+    SOLO permite crear ADMIN
+    """
+    try:
+        return UsuarioService().create(
+            db,
+            payload.model_dump(),
+            actor_role=None  # 🔥 clave para diferenciar registro público
+        )
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except BadRequestError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 
 
 def _verify_otp(email: str, code: str) -> bool:
-    """Valida el OTP almacenado."""
     if email not in _otp_storage:
         return False
 
@@ -53,17 +68,11 @@ def _verify_otp(email: str, code: str) -> bool:
 
 
 # ------------------------
-# LOGIN
+# INICIAR SESIÓN
 # ------------------------
 
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Autenticación de usuario.
-
-    Valida credenciales y retorna un JWT.
-    """
-
     user = UsuarioService().get_by_email(db, payload.email)
 
     if not user or not user.activo or not verify_password(payload.password, user.password):
@@ -89,12 +98,6 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/request-password-reset")
 def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-    """
-    Solicita recuperación de contraseña.
-
-    Genera token tipo RESET (15 minutos).
-    """
-
     user = UsuarioService().get_by_email(db, payload.email)
 
     token = create_token(
@@ -103,21 +106,16 @@ def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(
         expires_delta=timedelta(minutes=15)
     )
 
-    # Simulación de envío de correo
     if user and user.activo:
         print(f"[RECUPERACIÓN] {payload.email} -> token: {token}")
 
     return {
-        "message": "Si el email existe, se ha enviado un link de recuperación"
+        "message": "Si el email es correcto, se ha enviado un link de recuperación"
     }
 
 
 @router.post("/reset-password")
 def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
-    """
-    Restablece la contraseña usando token RESET.
-    """
-
     decoded = decode_token(payload.token, token_type=TokenType.RESET)
 
     if not decoded:
@@ -142,7 +140,6 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
             detail="Token inválido"
         )
 
-    # ⚠️ El service ya hace el hash
     UsuarioService().update(db, user.id, {
         "password": payload.new_password
     })
@@ -151,22 +148,25 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
         "message": "Contraseña actualizada correctamente"
     }
 
+# ------------------------
+# UTILIDADES OTP-One Time Password (SIMULADO)
+# ------------------------
+
+def _generate_otp() -> str:
+    return f"{random.randint(10000000, 99999999)}"
+
 
 # ------------------------
-# OTP (SIMULADO)
+# OTP (SIMULADO) - time
 # ------------------------
 
 @router.post("/request-otp")
 def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-    """
-    Genera y envía OTP (simulado).
-    """
-
     user = UsuarioService().get_by_email(db, payload.email)
 
     if user and user.activo:
         code = _generate_otp()
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
 
         _otp_storage[payload.email] = (code, expires_at)
 
@@ -179,10 +179,6 @@ def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
 
 @router.post("/verify-otp", response_model=Token)
 def verify_otp(payload: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Verifica OTP y genera JWT.
-    """
-
     if not _verify_otp(payload.email, payload.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
