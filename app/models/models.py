@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from app.db.base import Base
 from app.models.enums import UserRole, MesaEstado, PedidoEstado, DetallePedidoEstado
 
-
 # =========================
 # USUARIO
 # =========================
@@ -16,10 +15,11 @@ class Usuario(Base):
     nombre = Column(String(100), nullable=False)
     email = Column(String(200), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
-    rol = Column(Enum(UserRole), nullable=False, default=UserRole.ADMIN)
+    rol = Column(Enum(UserRole), nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
 
-    pedidos = relationship("Pedido", back_populates="usuario", cascade="save-update")
+    # Relación con Pedido
+    pedidos = relationship("Pedido", back_populates="usuario")
 
 
 # =========================
@@ -34,6 +34,7 @@ class Producto(Base):
     precio = Column(Numeric(10, 2), nullable=False)
     disponible = Column(Boolean, default=True, nullable=False)
 
+    # Relación con DetallePedido
     detalles = relationship("DetallePedido", back_populates="producto")
 
 
@@ -48,6 +49,7 @@ class Mesa(Base):
     capacidad = Column(Integer, nullable=False)
     estado = Column(Enum(MesaEstado), default=MesaEstado.LIBRE, nullable=False)
 
+    # Relación con Pedido
     pedidos = relationship("Pedido", back_populates="mesa")
 
 
@@ -63,6 +65,7 @@ class Pedido(Base):
     fecha = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     estado = Column(Enum(PedidoEstado), default=PedidoEstado.ABIERTO, nullable=False)
 
+    # Relaciones - Estos nombres deben coincidir con PedidoResponse en schemas.py
     mesa = relationship("Mesa", back_populates="pedidos")
     usuario = relationship("Usuario", back_populates="pedidos")
     detalles = relationship("DetallePedido", back_populates="pedido", cascade="all, delete-orphan")
@@ -83,6 +86,7 @@ class DetallePedido(Base):
     subtotal = Column(Numeric(10, 2), nullable=False)
     estado = Column(Enum(DetallePedidoEstado), default=DetallePedidoEstado.PENDIENTE, nullable=False)
 
+    # Relaciones
     pedido = relationship("Pedido", back_populates="detalles")
     producto = relationship("Producto", back_populates="detalles")
 
@@ -98,4 +102,5 @@ class Pago(Base):
     total = Column(Numeric(10, 2), nullable=False)
     fecha = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
+    # Relación
     pedido = relationship("Pedido", back_populates="pago")

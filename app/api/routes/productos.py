@@ -11,7 +11,7 @@ service = ProductoService()
 
 
 @router.post("/", response_model=ProductoResponse, status_code=status.HTTP_201_CREATED)
-def create_producto(payload: ProductoCreate, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))):
+def create_producto(payload: ProductoCreate, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
     try:
         return service.create(db, payload.dict())
     except Exception as exc:

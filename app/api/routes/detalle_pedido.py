@@ -6,7 +6,7 @@ from app.services.detalle_pedido import DetallePedidoService
 from app.schemas.schemas import DetallePedidoResponse, DetallePedidoUpdate
 from app.models.enums import UserRole
 
-router = APIRouter(prefix="/detalles", tags=["Detalles"])
+router = APIRouter(prefix="/detalle_pedidos", tags=["Detalle Pedidos"])
 service = DetallePedidoService()
 
 
@@ -26,7 +26,7 @@ def get_detalle(detalle_id: int, db: Session = Depends(get_db), current_user = D
 @router.patch("/{detalle_id}", response_model=DetallePedidoResponse)
 def update_detalle(detalle_id: int, payload: DetallePedidoUpdate, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.COCINA, UserRole.MESERO]))):
     try:
-        return service.update(db, detalle_id, payload.dict(exclude_unset=True))
+        return service.update(db, detalle_id, payload.model_dump(exclude_unset=True))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
