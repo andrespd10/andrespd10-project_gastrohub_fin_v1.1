@@ -94,27 +94,31 @@ class PedidoService:
     # ------------------------
     # DELETE
     # ------------------------
-
     def delete(self, db: Session, pedido_id: int):
-        pedido = self.get_by_id(db, pedido_id)
+            pedido = self.get_by_id(db, pedido_id)
 
-        # 🔥 NO permitir eliminar pedidos cerrados
-        if pedido.estado == PedidoEstado.CERRADO:
-            raise BadRequestError("No se puede eliminar un pedido cerrado")
+            # 🔥 NO permitir eliminar pedidos cerrados
+            if pedido.estado == PedidoEstado.CERRADO:
+                raise BadRequestError("No se puede eliminar un pedido cerrado")
 
-        # 🔥 liberar mesa si estaba abierto
-        if pedido.estado == PedidoEstado.ABIERTO:
-            pedido.mesa.estado = MesaEstado.LIBRE
+            # 🔥 liberar mesa si estaba abierto
+            if pedido.estado == PedidoEstado.ABIERTO:
+                pedido.mesa.estado = MesaEstado.LIBRE
 
-        deleted = self.pedido_repo.delete(db, pedido_id)
-        db.commit()
-        return deleted
+            # Ejecutamos la eliminación
+            self.pedido_repo.delete(db, pedido_id)
+            db.commit()
+            
+            # 👇 CAMBIO CLAVE: No retornamos 'deleted'. 
+            # Simplemente retornamos True o nada.
+            return f"Pedido {pedido_id} eliminado exitosamente y mesa {pedido.mesa_id} liberada"
 
     # ------------------------
-    # DETALLE PEDIDO
+    # DETALLE PEDIDO (Individual y Masivo)
     # ------------------------
 
     def add_detalle(self, db: Session, pedido_id: int, producto_id: int, cantidad: int) -> DetallePedido:
+        """Agrega un solo producto (mantenido por compatibilidad)"""
         pedido = self.get_by_id(db, pedido_id)
 
         if pedido.estado == PedidoEstado.CERRADO:
@@ -123,7 +127,7 @@ class PedidoService:
         producto = self.producto_repo.get_by_id(db, producto_id)
 
         if not producto or not producto.disponible:
-            raise BadRequestError("Producto no disponible")
+            raise BadRequestError(f"Producto ID {producto_id} no disponible o no existe")
 
         subtotal = producto.precio * cantidad
 
@@ -139,15 +143,49 @@ class PedidoService:
         db.commit()
         return detalle
 
+    # 🔥 MÉTODO ACTUALIZADO: AGREGAR VARIOS PRODUCTOS CON ID DE USUARIO
+    def add_multiple_detalles(self, db: Session, pedido_id: int, items: list, usuario_id: int) -> dict:
+        """
+        Recorre una lista de productos y los agrega todos al mismo pedido.
+        Recibe usuario_id para validar quién hace la operación.
+        """
+        pedido = self.get_by_id(db, pedido_id)
+
+        if pedido.estado == PedidoEstado.CERRADO:
+            raise BadRequestError("No se pueden agregar productos a un pedido cerrado")
+
+        # Registro de auditoría simple (esto quita el aviso en el router)
+        print(f"INFO: El usuario ID {usuario_id} está agregando productos al pedido {pedido_id}")
+
+        detalles_creados = []
+
+        for item in items:
+            producto = self.producto_repo.get_by_id(db, item.producto_id)
+            
+            if not producto or not producto.disponible:
+                db.rollback() 
+                raise BadRequestError(f"Producto ID {item.producto_id} no existe o no está disponible")
+
+            subtotal = producto.precio * item.cantidad
+
+            nuevo_detalle = self.detalle_repo.create(db, {
+                "pedido_id": pedido_id,
+                "producto_id": item.producto_id,
+                "cantidad": item.cantidad,
+                "precio_unitario": producto.precio,
+                "subtotal": subtotal,
+                "estado": DetallePedidoEstado.PENDIENTE
+            })
+            detalles_creados.append(nuevo_detalle)
+
+        db.commit()
+        return {"message": f"Usuario {usuario_id} agregó {len(detalles_creados)} productos al pedido {pedido_id}"}
+
     # ------------------------
     # CERRAR PEDIDO (OPCIONAL)
     # ------------------------
 
     def cerrar_pedido(self, db: Session, pedido_id: int) -> Pedido:
-        """
-        Este método es opcional si usas update,
-        pero lo dejamos por buenas prácticas.
-        """
         pedido = self.get_by_id(db, pedido_id)
 
         if pedido.estado == PedidoEstado.CERRADO:
@@ -187,3 +225,7 @@ class PedidoService:
 
         db.commit()
         return pago
+
+    def calculate_pago_total(self, db: Session, pedido_id: int) -> Decimal:
+        pedido = self.get_by_id(db, pedido_id)
+        return sum(d.subtotal for d in pedido.detalles)

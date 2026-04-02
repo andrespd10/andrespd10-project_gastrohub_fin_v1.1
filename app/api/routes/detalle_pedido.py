@@ -32,7 +32,7 @@ def update_detalle(detalle_id: int, payload: DetallePedidoUpdate, db: Session = 
 
 
 @router.delete("/{detalle_id}")
-def delete_detalle(detalle_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.COCINA, UserRole.MESERO]))):
+def delete_detalle(detalle_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.COCINA, UserRole.MESERO, UserRole.ADMIN]))):
     try:
         return service.delete(db, detalle_id)
     except Exception as exc:

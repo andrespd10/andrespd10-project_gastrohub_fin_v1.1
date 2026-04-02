@@ -72,8 +72,8 @@ class ProductoResponse(ProductoBase):
 # MESA
 # ------------------------
 class MesaBase(BaseModel):
-    numero: int = Field(..., gt=0) # 🔥 Corregido: Obligatorio para crear
-    capacidad: int = Field(..., gt=0) # 🔥 Corregido: Obligatorio para crear
+    numero: int = Field(..., gt=0) 
+    capacidad: int = Field(..., gt=0) 
     estado: MesaEstado = MesaEstado.LIBRE
 
 class MesaCreate(MesaBase):
@@ -81,7 +81,7 @@ class MesaCreate(MesaBase):
 
 class MesaUpdate(BaseModel):
     numero: Optional[int] = Field(None, gt=0)
-    capacidad: Optional[int] = Field(None, gt=0) # Opcional al editar
+    capacidad: Optional[int] = Field(None, gt=0) 
 
 class MesaResponse(MesaBase):
     id: int
@@ -100,14 +100,18 @@ class DetallePedidoCreate(BaseModel):
     producto_id: int
     cantidad: int = Field(..., gt=0)
 
+# 🔥 NUEVO: Para enviar varios productos a un pedido en un solo JSON
+class DetallePedidoBulkCreate(BaseModel):
+    items: List[DetallePedidoCreate]
+
 class DetallePedidoUpdate(BaseModel):
-    cantidad: Optional[int] = Field(None, gt=0)
+    cantidad: Optional[int] = None
     estado: Optional[DetallePedidoEstado] = None
 
 class DetallePedidoResponse(BaseModel):
     id: int
     producto_id: int
-    producto: Optional[ProductoSimple] = None # 🔥 Trae el nombre del producto
+    producto: Optional[ProductoSimple] = None 
     cantidad: int
     precio_unitario: Decimal
     subtotal: Decimal
@@ -133,7 +137,7 @@ class PedidoBase(BaseModel):
     estado: PedidoEstado = PedidoEstado.ABIERTO
 
 class PedidoCreate(BaseModel):
-    mesa_id: int # Solo pedimos la mesa, el usuario sale del token
+    mesa_id: int 
 
 class PedidoUpdate(BaseModel):
     estado: Optional[PedidoEstado] = None
@@ -144,7 +148,6 @@ class PedidoResponse(BaseModel):
     estado: PedidoEstado
     mesa_id: int
     usuario_id: int
-    # 🔥 Información detallada para el mesero
     mesa: Optional[MesaSimple] = None
     usuario: Optional[UsuarioSimple] = None
     detalles: List[DetallePedidoResponse] = Field(default_factory=list)
@@ -171,7 +174,7 @@ class LoginRequest(BaseModel):
 PedidoResponse.model_rebuild()
 
 # ------------------------
-# AUTH / RESET (Faltaban estas)
+# AUTH / RESET 
 # ------------------------
 class OTPRequest(BaseModel):
     email: EmailStr

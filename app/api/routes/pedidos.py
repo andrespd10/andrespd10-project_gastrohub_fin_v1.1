@@ -8,6 +8,7 @@ from app.schemas.schemas import (
     PedidoResponse, 
     PedidoUpdate, 
     DetallePedidoCreate, 
+    DetallePedidoBulkCreate, # 🔥 Importado para el envío masivo
     DetallePedidoResponse,
     PagoResponse
 )
@@ -29,8 +30,6 @@ def create_pedido(
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-#nuevo endpoint para listar pedidos con lógica de roles
-
 @router.get("/", response_model=list[PedidoResponse])
 def list_pedidos(
     db: Session = Depends(get_db), 
@@ -47,10 +46,6 @@ def list_pedidos(
     # 👑 ADMIN: Todo el historial
     return service.get_all(db)
 
-@router.get("/", response_model=list[PedidoResponse])
-def list_pedidos(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    return service.get_all(db)
-
 
 @router.get("/{pedido_id}", response_model=PedidoResponse)
 def get_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
@@ -60,41 +55,32 @@ def get_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Dep
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.put("/{pedido_id}", response_model=PedidoResponse)
-def update_pedido(
-    pedido_id: int, 
-    payload: PedidoUpdate, 
-    db: Session = Depends(get_db), 
-    current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
-):
-    try:
-        return service.update(db, pedido_id, payload.model_dump(exclude_unset=True))
-    except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-
 @router.delete("/{pedido_id}")
-def delete_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
+def delete_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))):
     try:
         return service.delete(db, pedido_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-
-@router.post("/{pedido_id}/detalles", response_model=DetallePedidoResponse, status_code=status.HTTP_201_CREATED)
-def add_detalle(
+# 🔥 ENDPOINT MODIFICADO: Ahora acepta una lista de productos
+@router.post("/{pedido_id}/detalles", status_code=status.HTTP_201_CREATED, summary="Add productos al pedido")
+def add_detalles_masivos(
     pedido_id: int, 
-    payload: DetallePedidoCreate, 
+    payload: DetallePedidoBulkCreate, # 👈 Cambio de Schema a Bulk
     db: Session = Depends(get_db), 
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
+    """
+    Agrega varios productos al pedido de una sola vez.
+    Ideal para cuando el mesero toma la orden completa de la mesa.
+    """
     try:
-        # 🔥 Usamos los parámetros limpios del service
-        return service.add_detalle(
+        # Llamamos al nuevo método 'add_multiple_detalles' que crearemos en el service
+        return service.add_multiple_detalles(
             db, 
             pedido_id=pedido_id, 
-            producto_id=payload.producto_id, 
-            cantidad=payload.cantidad
+            items=payload.items,
+            usuario_id=current_user.id  # Pasamos el ID del usuario para auditoría o reglas de negocio 
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -124,6 +110,3 @@ def create_pago(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-@router.get("/{pedido_id}/total")
-def get_total(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    return {"total": service.calculate_pago_total(db, pedido_id)}

@@ -16,7 +16,7 @@ def list_pagos(db: Session = Depends(get_db), current_user = Depends(require_rol
 
 
 @router.get("/{pago_id}", response_model=PagoResponse)
-def get_pago(pago_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def get_pago(pago_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
     try:
         return service.get_by_id(db, pago_id)
     except Exception as exc:
