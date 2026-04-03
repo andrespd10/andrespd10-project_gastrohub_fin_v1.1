@@ -73,9 +73,10 @@ def rate_limiter(client_ip: str, path: str, method: str):
 async def limit_requests(request: Request, call_next):
     client_ip = request.client.host if request.client else "unknown"
     path = request.url.path
+    method = request.method  # <--- Agregamos esta línea para obtener el método (POST, GET, etc.)
 
     # Ejecutar validación de tasa
-    if not rate_limiter(client_ip, path):
+    if not rate_limiter(client_ip, path, method):
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
