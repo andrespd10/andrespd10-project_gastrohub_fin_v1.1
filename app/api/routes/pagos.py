@@ -11,12 +11,12 @@ service = PagoService()
 
 
 @router.get("/", response_model=list[PagoResponse])
-def list_pagos(db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
+def list_pagos(db: Session = Depends(get_db), _current_user = Depends(require_role([UserRole.ADMIN]))):  # type: ignore[unused-variable]
     return service.get_all(db)
 
 
 @router.get("/{pago_id}", response_model=PagoResponse)
-def get_pago(pago_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
+def get_pago(pago_id: int, db: Session = Depends(get_db), _current_user = Depends(require_role([UserRole.ADMIN]))):  # type: ignore[unused-variable]
     try:
         return service.get_by_id(db, pago_id)
     except Exception as exc:
@@ -24,7 +24,7 @@ def get_pago(pago_id: int, db: Session = Depends(get_db), current_user = Depends
 
 
 @router.delete("/{pago_id}")
-def delete_pago(pago_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
+def delete_pago(pago_id: int, db: Session = Depends(get_db), _current_user = Depends(require_role([UserRole.ADMIN]))):  # type: ignore[unused-variable]
     try:
         return service.delete(db, pago_id)
     except Exception as exc:

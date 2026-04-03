@@ -63,7 +63,7 @@ class PedidoService:
             "estado": PedidoEstado.ABIERTO
         })
 
-        # 🔥 Mesa pasa a ocupada
+        # Mesa pasa a ocupada
         mesa.estado = MesaEstado.OCUPADA
 
         db.commit()
@@ -79,12 +79,12 @@ class PedidoService:
         if pedido.estado == PedidoEstado.CERRADO:
             raise BadRequestError("No se puede modificar un pedido ya cerrado")
 
-        # 🔥 VALIDACIÓN CLAVE: no cerrar sin productos
+        # VALIDACIÓN CLAVE: no cerrar sin productos
         if payload.get("estado") == PedidoEstado.CERRADO:
             if not pedido.detalles:
                 raise BadRequestError("No se puede cerrar un pedido sin productos")
 
-            # 🔥 liberar mesa al cerrar
+            # liberar mesa al cerrar
             pedido.mesa.estado = MesaEstado.LIBRE
 
         updated = self.pedido_repo.update(db, pedido, payload)
@@ -97,11 +97,11 @@ class PedidoService:
     def delete(self, db: Session, pedido_id: int):
             pedido = self.get_by_id(db, pedido_id)
 
-            # 🔥 NO permitir eliminar pedidos cerrados
+            # NO permitir eliminar pedidos cerrados
             if pedido.estado == PedidoEstado.CERRADO:
                 raise BadRequestError("No se puede eliminar un pedido cerrado")
 
-            # 🔥 liberar mesa si estaba abierto
+            # liberar mesa si estaba abierto
             if pedido.estado == PedidoEstado.ABIERTO:
                 pedido.mesa.estado = MesaEstado.LIBRE
 
@@ -109,7 +109,7 @@ class PedidoService:
             self.pedido_repo.delete(db, pedido_id)
             db.commit()
             
-            # 👇 CAMBIO CLAVE: No retornamos 'deleted'. 
+            # CAMBIO CLAVE: No retornamos 'deleted'. 
             # Simplemente retornamos True o nada.
             return f"Pedido {pedido_id} eliminado exitosamente y mesa {pedido.mesa_id} liberada"
 
@@ -143,7 +143,7 @@ class PedidoService:
         db.commit()
         return detalle
 
-    # 🔥 MÉTODO ACTUALIZADO: AGREGAR VARIOS PRODUCTOS CON ID DE USUARIO
+    # MÉTODO ACTUALIZADO: AGREGAR VARIOS PRODUCTOS CON ID DE USUARIO
     def add_multiple_detalles(self, db: Session, pedido_id: int, items: list, usuario_id: int) -> dict:
         """
         Recorre una lista de productos y los agrega todos al mismo pedido.
@@ -182,7 +182,7 @@ class PedidoService:
         return {"message": f"Usuario {usuario_id} agregó {len(detalles_creados)} productos al pedido {pedido_id}"}
 
     # ------------------------
-    # CERRAR PEDIDO (OPCIONAL)
+    # CERRAR PEDIDO
     # ------------------------
 
     def cerrar_pedido(self, db: Session, pedido_id: int) -> Pedido:
@@ -216,7 +216,7 @@ class PedidoService:
         if not pedido.detalles:
             raise BadRequestError("No se puede pagar un pedido vacío")
 
-        total = sum(d.subtotal for d in pedido.detalles)
+        total = self.calculate_pago_total(db, pedido_id)
 
         pago = self.pago_repo.create(db, {
             "pedido_id": pedido_id,

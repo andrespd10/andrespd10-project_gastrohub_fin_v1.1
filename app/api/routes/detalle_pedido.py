@@ -11,12 +11,12 @@ service = DetallePedidoService()
 
 
 @router.get("/", response_model=list[DetallePedidoResponse])
-def list_detalles(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def list_detalles(db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
     return service.get_all(db)
 
 
 @router.get("/{detalle_id}", response_model=DetallePedidoResponse)
-def get_detalle(detalle_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def get_detalle(detalle_id: int, db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
     try:
         return service.get_by_id(db, detalle_id)
     except Exception as exc:

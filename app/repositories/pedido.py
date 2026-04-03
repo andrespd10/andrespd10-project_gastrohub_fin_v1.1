@@ -19,7 +19,7 @@ class PedidoRepository(BaseRepository):
         return db.query(Pedido).options(
             joinedload(Pedido.mesa),
             joinedload(Pedido.usuario)
-        ).offset(skip).limit(limit).all()
+        ).order_by(Pedido.fecha_creacion.desc()).offset(skip).limit(limit).all()
 
     def get_by_usuario(self, db: Session, usuario_id: int):
         """Filtra pedidos creados por el mesero actual"""

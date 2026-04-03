@@ -79,9 +79,6 @@ class MesaBase(BaseModel):
 class MesaCreate(MesaBase):
     pass
 
-class MesaUpdate(BaseModel):
-    numero: Optional[int] = Field(None, gt=0)
-    capacidad: Optional[int] = Field(None, gt=0) 
 
 class MesaResponse(MesaBase):
     id: int
@@ -100,7 +97,7 @@ class DetallePedidoCreate(BaseModel):
     producto_id: int
     cantidad: int = Field(..., gt=0)
 
-# 🔥 NUEVO: Para enviar varios productos a un pedido en un solo JSON
+#  NUEVO: Para enviar varios productos a un pedido en un solo JSON
 class DetallePedidoBulkCreate(BaseModel):
     items: List[DetallePedidoCreate]
 

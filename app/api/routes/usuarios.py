@@ -25,7 +25,7 @@ def create_usuario(
     """
     Crear usuario.
 
-    🔐 Reglas:
+    Reglas:
     - SOLO ADMIN puede crear usuarios
     - ADMIN solo puede crear MESERO o COCINA
     - NO puede crear ADMIN (según tu lógica actual)
@@ -53,12 +53,12 @@ def list_usuarios(
     """
     Listar usuarios.
 
-    🔐 SOLO ADMIN puede ver todos
+    SOLO ADMIN puede ver todos
     """
     try:
         return service.get_all(
             db,
-            actor_role=current_user.rol   # 🔥 clave
+            actor_role=current_user.rol   # clave
         )
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
@@ -76,7 +76,7 @@ def get_usuario(
     """
     Obtener usuario por ID.
 
-    🔐 Reglas:
+    Reglas:
     - ADMIN puede ver cualquiera
     - Usuario normal solo puede verse a sí mismo
     """
@@ -84,7 +84,7 @@ def get_usuario(
         return service.get_by_id(
             db,
             usuario_id,
-            current_user   # ✅ aquí sí pasamos el objeto completo
+            current_user   # aquí sí pasamos el objeto completo
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -105,7 +105,7 @@ def update_usuario(
     """
     Actualizar usuario.
 
-    🔐 Reglas:
+    Reglas:
     - SOLO ADMIN puede cambiar roles
     - Nadie puede asignar ADMIN
     """
@@ -113,8 +113,8 @@ def update_usuario(
         return service.update(
             db,
             usuario_id,
-            payload.model_dump(exclude_unset=True),  # ✅ solo campos enviados
-            current_user   # ✅ objeto completo con .id y .rol
+            payload.model_dump(exclude_unset=True),  #  solo campos enviados
+            current_user   #  objeto completo con .id y .rol
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -136,7 +136,7 @@ def delete_usuario(
     """
     Eliminar usuario.
 
-    🔐 Reglas:
+    Reglas:
     - ADMIN → eliminación física
     - Otros → desactivación (soft delete)
     """
@@ -144,7 +144,7 @@ def delete_usuario(
         return service.delete(
             db,
             usuario_id,
-            current_user   # ✅ objeto completo con .id y .rol
+            current_user   # objeto completo con .id y .rol
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

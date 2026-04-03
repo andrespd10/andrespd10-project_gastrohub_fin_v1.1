@@ -28,7 +28,7 @@ _otp_storage: dict[str, tuple[str, datetime]] = {}
 
 
 # ------------------------
-# 🟢 REGISTRAR (NUEVO 🔥)
+# 🟢 REGISTRAR (NUEVO)
 # ------------------------
 @router.post("/register", response_model=UsuarioResponse)
 def register(payload: UsuarioCreate, db: Session = Depends(get_db)):
@@ -149,7 +149,7 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
     }
 
 # ------------------------
-# UTILIDADES OTP-One Time Password (SIMULADO)
+# UTILIDADES OTP-(One Time Password(SIMULADO))
 # ------------------------
 
 def _generate_otp() -> str:

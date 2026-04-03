@@ -89,7 +89,7 @@ class UsuarioService:
     # ------------------------
     def update(self, db: Session, usuario_id: int, payload: dict, current_user: Usuario) -> Usuario:
         """
-        🔐 REGLAS:
+        REGLAS:
         - ADMIN puede actualizar cualquiera
         - Usuario solo puede actualizarse a sí mismo
         - SOLO ADMIN puede cambiar rol
@@ -132,7 +132,7 @@ class UsuarioService:
     # ------------------------
     def delete(self, db: Session, usuario_id: int, current_user: Usuario):
         """
-        🔐 REGLAS:
+        REGLAS:
         - ADMIN → eliminación física
         - Usuario → solo puede desactivarse a sí mismo
         """
@@ -142,7 +142,7 @@ class UsuarioService:
         if not usuario:
             raise NotFoundError("Usuario no encontrado")
 
-        # 🔐 NO ADMIN
+        # NO ADMIN
         if current_user.rol != UserRole.ADMIN:
             if current_user.id != usuario_id:
                 raise ForbiddenError("No puedes eliminar otros usuarios")
@@ -151,7 +151,7 @@ class UsuarioService:
             db.commit()
             return usuario
 
-        # 🔐 ADMIN → eliminación física
+        # ADMIN → eliminación física
         deleted = self.repo.delete(db, usuario_id)
 
         db.commit()

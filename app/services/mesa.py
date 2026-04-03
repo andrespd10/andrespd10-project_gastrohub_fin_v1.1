@@ -37,23 +37,6 @@ class MesaService:
     def get_all(self, db: Session, skip: int = 0, limit: int = 100):
         return self.repo.get_all(db, skip=skip, limit=limit)
 
-    def update(self, db: Session, mesa_id: int, payload: dict) -> Mesa:
-        mesa = self.get_by_id(db, mesa_id)
-
-        # 🔒 BLOQUEAR CAMBIO DE ESTADO MANUAL
-        if "estado" in payload:
-            raise BadRequestError("El estado de la mesa se gestiona automáticamente")
-
-        # 🔍 Validar número único
-        if "numero" in payload:
-            existing = db.query(Mesa).filter(Mesa.numero == payload["numero"]).first()
-            if existing and existing.id != mesa_id:
-                raise BadRequestError("Ya existe otra mesa con ese número")
-
-        mesa = self.repo.update(db, mesa, payload)
-        db.commit()
-        return mesa
-
     def delete(self, db: Session, mesa_id: int):
         mesa = self.get_by_id(db, mesa_id)
 

@@ -13,18 +13,18 @@ service = ProductoService()
 @router.post("/", response_model=ProductoResponse, status_code=status.HTTP_201_CREATED)
 def create_producto(payload: ProductoCreate, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
     try:
-        return service.create(db, payload.dict())
+        return service.create(db, payload.model_dump())
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @router.get("/", response_model=list[ProductoResponse])
-def list_productos(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def list_productos(db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
     return service.get_all(db)
 
 
 @router.get("/{producto_id}", response_model=ProductoResponse)
-def get_producto(producto_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def get_producto(producto_id: int, db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
     try:
         return service.get_by_id(db, producto_id)
     except Exception as exc:
@@ -34,7 +34,7 @@ def get_producto(producto_id: int, db: Session = Depends(get_db), current_user =
 @router.put("/{producto_id}", response_model=ProductoResponse)
 def update_producto(producto_id: int, payload: ProductoUpdate, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN]))):
     try:
-        return service.update(db, producto_id, payload.dict(exclude_unset=True))
+        return service.update(db, producto_id, payload.model_dump(exclude_unset=True))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

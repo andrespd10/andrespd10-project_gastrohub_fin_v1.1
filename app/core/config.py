@@ -14,7 +14,12 @@ class Settings(BaseSettings):
 
     # --- Limitación de Tasa (Rate Limiting) ---
     RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
-    RATE_LIMIT_LOGIN: int = Field(5, env="RATE_LIMIT_LOGIN")
+    RATE_LIMIT_LOGIN: int = Field(3, env="RATE_LIMIT_LOGIN")
+
+    # --- Almacenamiento de Rate Limit ---
+    # Por defecto usa la memoria (memory://)
+    # En producción (con Redis) cambiarías el .env a redis://localhost:6379/0
+    RATE_LIMIT_STORAGE_URL: str = Field("memory://", env="RATE_LIMIT_STORAGE_URL")
 
     # --- Modo Desarrollo ---
     DEBUG: bool = Field(True, env="DEBUG")
@@ -23,18 +28,22 @@ class Settings(BaseSettings):
     MAIL_FROM: str = Field("test@gastrohub.com", env="MAIL_FROM")
     MAIL_ENABLED: bool = Field(False, env="MAIL_ENABLED")
 
-    # --- Seguridad de Red ---
+    # --- Seguridad de Red (cors / hosts)---
     ALLOWED_HOSTS: str = Field("*", env="ALLOWED_HOSTS")
 
     def get_allowed_hosts(self) -> List[str]:
-        return self.ALLOWED_HOSTS.split(",")
+        # Si es "*", devolvemos una lista con el comodín
+        if self.ALLOWED_HOSTS == "*":
+            return ["*"]
+        # Si hay URLs específicas, las separamos por coma
+        return [host.strip() for host in self.ALLOWED_HOSTS.split(",")]
 
-    # --- CONFIGURACIÓN CRUCIAL ---
-    # extra="ignore" evita el error de "Extra inputs are not permitted"
+    # --- CONFIGURACIÓN DE PYDANTIC V2 ---
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"  
+        extra="ignore"  # Ignora variables extra en el .env que no estén aquí
     )
 
+# Instancia global para usar en todo el proyecto
 settings = Settings()
