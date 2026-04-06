@@ -15,35 +15,38 @@ class Settings(BaseSettings):
     # --- Limitación de Tasa (Rate Limiting) ---
     RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
     RATE_LIMIT_LOGIN: int = Field(3, env="RATE_LIMIT_LOGIN")
-
-    # --- Almacenamiento de Rate Limit ---
-    # Por defecto usa la memoria (memory://)
-    # En producción (con Redis) cambiarías el .env a redis://localhost:6379/0
     RATE_LIMIT_STORAGE_URL: str = Field("memory://", env="RATE_LIMIT_STORAGE_URL")
 
     # --- Modo Desarrollo ---
     DEBUG: bool = Field(True, env="DEBUG")
 
-    # --- Configuración de Correo ---
-    MAIL_FROM: str = Field("test@gastrohub.com", env="MAIL_FROM")
-    MAIL_ENABLED: bool = Field(False, env="MAIL_ENABLED")
+    # --- Configuración de Correo (GMAIL) ---
+    MAIL_USERNAME: str = Field(..., env="MAIL_USERNAME")
+    MAIL_PASSWORD: str = Field(..., env="MAIL_PASSWORD")
+    MAIL_FROM: str = Field(..., env="MAIL_FROM")
+    MAIL_PORT: int = Field(587, env="MAIL_PORT")
+    MAIL_SERVER: str = Field("smtp.gmail.com", env="MAIL_SERVER")
+    MAIL_STARTTLS: bool = Field(True, env="MAIL_STARTTLS")
+    MAIL_SSL_TLS: bool = Field(False, env="MAIL_SSL_TLS")
+    MAIL_ENABLED: bool = Field(True, env="MAIL_ENABLED")
+    
+    # --- Frontend ---
+    FRONTEND_URL: str = Field("http://localhost:3000", env="FRONTEND_URL")
 
-    # --- Seguridad de Red (cors / hosts)---
+    # --- Seguridad de Red ---
     ALLOWED_HOSTS: str = Field("*", env="ALLOWED_HOSTS")
 
     def get_allowed_hosts(self) -> List[str]:
-        # Si es "*", devolvemos una lista con el comodín
         if self.ALLOWED_HOSTS == "*":
             return ["*"]
-        # Si hay URLs específicas, las separamos por coma
         return [host.strip() for host in self.ALLOWED_HOSTS.split(",")]
 
     # --- CONFIGURACIÓN DE PYDANTIC V2 ---
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"  # Ignora variables extra en el .env que no estén aquí
+        extra="ignore"
     )
 
-# Instancia global para usar en todo el proyecto
+# Instancia única para todo el proyecto
 settings = Settings()

@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
-import random
 
 from app.db.session import get_db
 from app.services.usuario import UsuarioService
-from app.services.exceptions import ForbiddenError, BadRequestError
+from app.services.exceptions import ForbiddenError, BadRequestError, NotFoundError
 from app.schemas.schemas import (
     LoginRequest,
     Token,
@@ -14,191 +12,65 @@ from app.schemas.schemas import (
     UsuarioCreate,
     UsuarioResponse
 )
-from app.core.security import (
-    verify_password,
-    create_token,
-    decode_token,
-    TokenType,
-)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# Almacenamiento temporal de OTP (solo simulación)
-_otp_storage: dict[str, tuple[str, datetime]] = {}
-
-
 # ------------------------
-# 🟢 REGISTRAR (NUEVO)
+# REGISTRAR
 # ------------------------
 @router.post("/register", response_model=UsuarioResponse)
 def register(payload: UsuarioCreate, db: Session = Depends(get_db)):
-    """
-    Registro público.
-
-    SOLO permite crear ADMIN
-    """
     try:
         return UsuarioService().create(
             db,
             payload.model_dump(),
-            actor_role=None  # 🔥 clave para diferenciar registro público
+            actor_role=None
         )
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except BadRequestError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-
-
-def _verify_otp(email: str, code: str) -> bool:
-    if email not in _otp_storage:
-        return False
-
-    saved_code, expires_at = _otp_storage[email]
-
-    if datetime.now(timezone.utc) > expires_at:
-        del _otp_storage[email]
-        return False
-
-    if saved_code != code:
-        return False
-
-    del _otp_storage[email]
-    return True
-
-
 # ------------------------
 # INICIAR SESIÓN
 # ------------------------
-
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = UsuarioService().get_by_email(db, payload.email)
-
-    if not user or not user.activo or not verify_password(payload.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales inválidas"
-        )
-
-    token = create_token(
-        subject=user.email,
-        token_type=TokenType.ACCESS
-    )
-
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
-
+    try:
+        return UsuarioService().login(db, payload.email, payload.password)
+    except (NotFoundError, BadRequestError) as exc:
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
 # ------------------------
 # RECUPERACIÓN DE CONTRASEÑA
 # ------------------------
-
 @router.post("/request-password-reset")
-def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-    user = UsuarioService().get_by_email(db, payload.email)
-
-    token = create_token(
-        subject=payload.email,
-        token_type=TokenType.RESET,
-        expires_delta=timedelta(minutes=15)
-    )
-
-    if user and user.activo:
-        print(f"[RECUPERACIÓN] {payload.email} -> token: {token}")
-
-    return {
-        "message": "Si el email es correcto, se ha enviado un link de recuperación"
-    }
-
+async def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+    # El Router solo ordena al servicio que envíe el correo
+    return await UsuarioService().send_password_reset_email(db, payload.email)
 
 @router.post("/reset-password")
 def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
-    decoded = decode_token(payload.token, token_type=TokenType.RESET)
-
-    if not decoded:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido o expirado"
+    try:
+        # El Router solo pasa los datos, el Service valida el token y cambia la clave
+        return UsuarioService().reset_password_with_token(
+            db, 
+            payload.token, 
+            payload.new_password
         )
-
-    email = decoded.get("sub")
-
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido"
-        )
-
-    user = UsuarioService().get_by_email(db, email)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido"
-        )
-
-    UsuarioService().update(db, user.id, {
-        "password": payload.new_password
-    })
-
-    return {
-        "message": "Contraseña actualizada correctamente"
-    }
+    except (BadRequestError, NotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 # ------------------------
-# UTILIDADES OTP-(One Time Password(SIMULADO))
+# OTP (One Time Password)
 # ------------------------
-
-def _generate_otp() -> str:
-    return f"{random.randint(10000000, 99999999)}"
-
-
-# ------------------------
-# OTP (SIMULADO) - time
-# ------------------------
-
 @router.post("/request-otp")
-def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-    user = UsuarioService().get_by_email(db, payload.email)
-
-    if user and user.activo:
-        code = _generate_otp()
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
-
-        _otp_storage[payload.email] = (code, expires_at)
-
-        print(f"[OTP] {payload.email} -> {code}")
-
-    return {
-        "message": "Si el email existe, se ha enviado un código OTP"
-    }
-
+async def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+    return await UsuarioService().send_otp_email(db, payload.email)
 
 @router.post("/verify-otp", response_model=Token)
 def verify_otp(payload: LoginRequest, db: Session = Depends(get_db)):
-    if not _verify_otp(payload.email, payload.password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP inválido"
-        )
-
-    user = UsuarioService().get_by_email(db, payload.email)
-
-    if not user or not user.activo:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario no activo"
-        )
-
-    token = create_token(
-        subject=user.email,
-        token_type=TokenType.ACCESS
-    )
-
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    try:
+        return UsuarioService().verify_otp_and_login(db, payload.email, payload.password)
+    except BadRequestError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

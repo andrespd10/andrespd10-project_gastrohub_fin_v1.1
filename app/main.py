@@ -33,6 +33,7 @@ app.add_middleware(
 
 # Almacenamiento temporal en memoria para los límites
 _limit_store = {}
+
 def rate_limiter(client_ip: str, path: str, method: str):
     now = datetime.now()
     window_start = now - timedelta(seconds=60)
@@ -45,47 +46,56 @@ def rate_limiter(client_ip: str, path: str, method: str):
 
     # --- LÓGICA DE LÍMITES ESPECÍFICOS ---
     
-    # 1. Login (Muy estricto: 3)
+    # 1. Login
     if "/auth/login" in path:
         limit = settings.RATE_LIMIT_LOGIN
 
-    # 2. Creación de Usuarios (Estricto: 5 por minuto para evitar spam)
+    # 2. Creación de Usuarios
     elif "/usuarios" in path and method == "POST":
         limit = 5
 
-    # 3. Recuperación de Contraseña (Muy estricto: 2 por minuto)
+    # 3. Recuperación de Contraseña
     elif "/auth/reset-password" in path:
         limit = 2
 
-    # 4. Pagos (Crítico: 5 por minuto para evitar cobros duplicados)
+    # 4. Pagos
     elif "/pagos" in path and method == "POST":
-        limit = 10
+        limit = 20
 
-    # 5. Límite General para todo lo demás (Mesas, Productos, Ver Pedidos)
+    # 5. Límite General
     else:
         limit = settings.RATE_LIMIT_PER_MINUTE
     
     if len(hits) > limit:
-        return False
-    return True
+        return False, limit # Retornamos también el límite aplicado
+    return True, limit
+
+# --- RUTA RAÍZ (HOME) ---
+@app.get("/", tags=["Root"])
+async def root():
+    return {
+        "message": "Bienvenido a GastroHub API",
+    }
 
 @app.middleware("http")
 async def limit_requests(request: Request, call_next):
     client_ip = request.client.host if request.client else "unknown"
     path = request.url.path
-    method = request.method  # <--- Agregamos esta línea para obtener el método (POST, GET, etc.)
+    method = request.method 
 
     # Ejecutar validación de tasa
-    if not rate_limiter(client_ip, path, method):
+    is_allowed, current_limit = rate_limiter(client_ip, path, method)
+    
+    if not is_allowed:
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
-                "detail": f"Demasiados intentos. Límite de {settings.RATE_LIMIT_LOGIN} peticiones por minuto para esta ruta.",
+                "detail": f"Demasiados intentos. Límite de {current_limit} peticiones por minuto para esta ruta.",
                 "type": "rate_limit_exceeded"
             },
         )
 
-    # Medición de tiempo de respuesta (X-Process-Time)
+    # Medición de tiempo de respuesta
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time

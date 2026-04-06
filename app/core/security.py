@@ -17,6 +17,7 @@ ROLE_COCINA = "COCINA"
 class TokenType:
     ACCESS = "access"
     RESET = "reset"
+    OTP = "otp"  # Añadido para la funcionalidad de código temporal
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica si una contraseña en texto plano coincide con el hash."""
@@ -36,13 +37,15 @@ def create_token(
     if expires_delta is None:
         if token_type == TokenType.RESET:
             expires_delta = timedelta(minutes=settings.RESET_TOKEN_EXPIRE_MINUTES)
+        elif token_type == TokenType.OTP:
+            expires_delta = timedelta(minutes=5) # El OTP suele durar menos
         else:
             expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     expire = datetime.now(timezone.utc) + expires_delta
 
     payload = {
-        "sub": subject,
+        "sub": str(subject),
         "exp": expire,
         "type": token_type,
     }
@@ -66,7 +69,7 @@ def decode_token(token: str, token_type: str = TokenType.ACCESS) -> dict:
             algorithms=[settings.ALGORITHM]
         )
 
-        # Validamos que el propósito del token sea el correcto (access vs reset)
+        # Validamos que el propósito del token sea el correcto (access vs reset vs otp)
         if payload.get("type") != token_type:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,10 +78,10 @@ def decode_token(token: str, token_type: str = TokenType.ACCESS) -> dict:
 
         return payload
 
-    except JWTError as e:
-        # Esto captura tokens expirados, firmas falsas o manipuladas
+    except JWTError:
+        # Simplificado para no exponer detalles técnicos del error en la respuesta API
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token inválido o expirado: {str(e)}",
+            detail="Token inválido o expirado",
             headers={"WWW-Authenticate": "Bearer"},
         )

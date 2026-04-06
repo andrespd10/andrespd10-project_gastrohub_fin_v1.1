@@ -1,125 +1,134 @@
 from sqlalchemy.orm import Session
+from fastapi_mail import MessageSchema, MessageType
 
 from app.models import Usuario
 from app.models.enums import UserRole
 from app.repositories import UsuarioRepository
 from app.services.exceptions import NotFoundError, ForbiddenError, BadRequestError
-from app.core.security import get_password_hash
-
+from app.core.security import get_password_hash, verify_password, create_token, decode_token, TokenType
+from app.core.mail import fastmail
+from app.core.config import settings
 
 class UsuarioService:
     def __init__(self, repository: UsuarioRepository = None):
         self.repo = repository or UsuarioRepository()
 
     # ------------------------
-    # CREAR USUARIO
+    # LOGIN
+    # ------------------------
+    def login(self, db: Session, email: str, password: str):
+        user = self.repo.get_by_email(db, email)
+        if not user or not user.activo or not verify_password(password, user.password):
+            raise BadRequestError("Credenciales inválidas")
+        
+        token = create_token(subject=user.email, token_type=TokenType.ACCESS)
+        return {"access_token": token, "token_type": "bearer"}
+
+    # ------------------------
+    # CREAR USUARIO (Tu lógica original)
     # ------------------------
     def create(self, db: Session, payload: dict, actor_role: UserRole = None) -> Usuario:
-        """
-        🔐 CREACIÓN DE USUARIO
-
-        CASO 1: Registro público (actor_role=None)
-            → SOLO permite ADMIN
-
-        CASO 2: Creación interna
-            → SOLO ADMIN puede crear usuarios
-            → ADMIN SOLO puede crear MESERO o COCINA
-            → ADMIN NO puede crear ADMIN
-        """
-
-        # 🟢 REGISTRO PÚBLICO
         if actor_role is None:
             if payload.get("rol") != UserRole.ADMIN:
                 raise ForbiddenError("Solo se permite registro como ADMIN")
-
-        # 🔐 CREACIÓN INTERNA
         else:
             if actor_role != UserRole.ADMIN:
                 raise ForbiddenError("Solo un administrador puede crear usuarios")
-
-        ## solo se puede crear MESERO o COCINA
             if payload.get("rol") == UserRole.ADMIN:
                 raise ForbiddenError("No se pueden crear más administradores")
 
-        # VALIDAR EMAIL
         existing = self.repo.get_by_email(db, payload["email"])
         if existing:
             raise BadRequestError("El email ya está registrado")
 
-        # HASH PASSWORD
         payload["password"] = get_password_hash(payload["password"])
-
         usuario = self.repo.create(db, payload)
         db.commit()
         return usuario
 
     # ------------------------
-    # OBTENER POR ID
+    # RECUPERACIÓN DE CONTRASEÑA (NUEVO)
     # ------------------------
-    def get_by_id(self, db: Session, usuario_id: int, current_user: Usuario):
-        """
-        🔐 SEGURIDAD:
-        - ADMIN → puede ver cualquiera
-        - Usuario normal → solo su propio perfil
-        """
-        usuario = self.repo.get_by_id(db, usuario_id)
+    async def send_password_reset_email(self, db: Session, email: str):
+        usuario = self.repo.get_by_email(db, email)
+        
+        # Generamos el token siempre para evitar ataques de enumeración
+        token = create_token(subject=email, token_type=TokenType.RESET)
 
-        if not usuario:
+        if usuario and usuario.activo:
+            link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+            
+            # Formato de texto plano (sin HTML visual para cumplir con tu requerimiento)
+            body = f"Hola {usuario.nombre if hasattr(usuario, 'nombre') else ''},\n\n" \
+                   f"Has solicitado restablecer tu contraseña en GastroHub.\n" \
+                   f"Usa el siguiente enlace para crear una nueva clave (expira en 15 min):\n\n" \
+                   f"{link}\n\n" \
+                   f"Si no solicitaste este cambio, puedes ignorar este mensaje."
+
+            message = MessageSchema(
+                subject="Recuperación de Contraseña - GastroHub",
+                recipients=[email],
+                body=body,
+                subtype=MessageType.plain
+            )
+            await fastmail.send_message(message)
+        
+        return {"message": "Si el email es correcto, recibirás un enlace de recuperación."}
+
+    def reset_password_with_token(self, db: Session, token: str, new_password: str):
+        # 1. Validar el token
+        decoded = decode_token(token, token_type=TokenType.RESET)
+        email = decoded.get("sub")
+
+        # 2. Buscar usuario
+        user = self.repo.get_by_email(db, email)
+        if not user:
             raise NotFoundError("Usuario no encontrado")
 
+        # 3. Actualizar usando tu propio método update (ya tiene el hash de password)
+        return self.update(db, user.id, {"password": new_password}, current_user=user)
+
+    # ------------------------
+    # OBTENER POR ID (Tu lógica original)
+    # ------------------------
+    def get_by_id(self, db: Session, usuario_id: int, current_user: Usuario):
+        usuario = self.repo.get_by_id(db, usuario_id)
+        if not usuario:
+            raise NotFoundError("Usuario no encontrado")
         if current_user.rol != UserRole.ADMIN and current_user.id != usuario_id:
             raise ForbiddenError("No tienes permiso para ver este usuario")
-
         return usuario
 
     # ------------------------
-    # LISTAR USUARIOS
+    # LISTAR USUARIOS (Tu lógica original)
     # ------------------------
     def get_all(self, db: Session, skip: int = 0, limit: int = 100, actor_role: UserRole = None):
-        """
-        🔐 SOLO ADMIN puede listar usuarios
-        """
         if actor_role != UserRole.ADMIN:
             raise ForbiddenError("No tienes permisos para listar usuarios")
-
         return self.repo.get_all(db, skip=skip, limit=limit)
 
     # ------------------------
-    # ACTUALIZAR USUARIO
+    # ACTUALIZAR USUARIO (Tu lógica original)
     # ------------------------
     def update(self, db: Session, usuario_id: int, payload: dict, current_user: Usuario) -> Usuario:
-        """
-        REGLAS:
-        - ADMIN puede actualizar cualquiera
-        - Usuario solo puede actualizarse a sí mismo
-        - SOLO ADMIN puede cambiar rol
-        - NADIE puede asignar ADMIN
-        """
-
         usuario = self.repo.get_by_id(db, usuario_id)
-
         if not usuario:
             raise NotFoundError("Usuario no encontrado")
 
-        # 🔐 Validar permisos
         if current_user.rol != UserRole.ADMIN and current_user.id != usuario_id:
             raise ForbiddenError("No puedes modificar este usuario")
 
-        # VALIDAR EMAIL
         if "email" in payload:
             existing = self.repo.get_by_email(db, payload["email"])
             if existing and existing.id != usuario_id:
                 raise BadRequestError("El email ya está en uso")
 
-        # HASH PASSWORD
         if "password" in payload and payload["password"]:
             payload["password"] = get_password_hash(payload["password"])
 
-        # 🔐 CAMBIO DE ROL
         if "rol" in payload:
             if current_user.rol != UserRole.ADMIN:
                 raise ForbiddenError("Solo ADMIN puede cambiar roles")
-
             if payload["rol"] == UserRole.ADMIN:
                 raise ForbiddenError("No se puede asignar rol ADMIN")
 
@@ -128,32 +137,21 @@ class UsuarioService:
         return usuario
 
     # ------------------------
-    # ELIMINAR USUARIO
+    # ELIMINAR USUARIO (Tu lógica original)
     # ------------------------
     def delete(self, db: Session, usuario_id: int, current_user: Usuario):
-        """
-        REGLAS:
-        - ADMIN → eliminación física
-        - Usuario → solo puede desactivarse a sí mismo
-        """
-
         usuario = self.repo.get_by_id(db, usuario_id)
-
         if not usuario:
             raise NotFoundError("Usuario no encontrado")
 
-        # NO ADMIN
         if current_user.rol != UserRole.ADMIN:
             if current_user.id != usuario_id:
                 raise ForbiddenError("No puedes eliminar otros usuarios")
-
             usuario = self.repo.update(db, usuario, {"activo": False})
             db.commit()
             return usuario
 
-        # ADMIN → eliminación física
         deleted = self.repo.delete(db, usuario_id)
-
         db.commit()
         return deleted
 
