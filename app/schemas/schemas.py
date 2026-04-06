@@ -97,7 +97,7 @@ class DetallePedidoCreate(BaseModel):
     producto_id: int
     cantidad: int = Field(..., gt=0)
 
-#  NUEVO: Para enviar varios productos a un pedido en un solo JSON
+# Para enviar varios productos a un pedido en un solo JSON
 class DetallePedidoBulkCreate(BaseModel):
     items: List[DetallePedidoCreate]
 

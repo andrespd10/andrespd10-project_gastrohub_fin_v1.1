@@ -21,11 +21,3 @@ def get_pago(pago_id: int, db: Session = Depends(get_db), _current_user = Depend
         return service.get_by_id(db, pago_id)
     except Exception as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-
-
-@router.delete("/{pago_id}")
-def delete_pago(pago_id: int, db: Session = Depends(get_db), _current_user = Depends(require_role([UserRole.ADMIN]))):  # type: ignore[unused-variable]
-    try:
-        return service.delete(db, pago_id)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))

@@ -46,13 +46,3 @@ class PagoService:
 
     def get_all(self, db: Session, skip: int = 0, limit: int = 100):
         return self.repo.get_all(db, skip=skip, limit=limit)
-
-    def update(self, db: Session, pago_id: int, payload: dict) -> Pago:
-        raise BadRequestError("No se permite modificar un pago")
-
-    def delete(self, db: Session, pago_id: int):
-        deleted = self.repo.delete(db, pago_id)
-        if not deleted:
-            raise NotFoundError(f"Pago con id {pago_id} no encontrado")
-        db.commit()
-        return deleted
