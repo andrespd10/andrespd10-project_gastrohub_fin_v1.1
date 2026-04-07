@@ -6,12 +6,13 @@ from app.services.pedido import PedidoService
 from app.schemas.schemas import (
     PedidoCreate, 
     PedidoResponse, 
-    DetallePedidoBulkCreate, # 🔥 Importado para el envío masivo
+    PedidoUpdateItems,
+    DetallePedidoBulkCreate,
     PagoResponse
 )
 from app.models.enums import UserRole
 
-router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
+router = APIRouter(prefix="/pedidos", tags=["Pedidos - Gestión de Órdenes"])
 service = PedidoService()
 
 
@@ -21,9 +22,22 @@ def create_pedido(
     db: Session = Depends(get_db), 
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
+    """
+    📋 Crear un pedido completo en una sola acción
+    
+    El mesero proporciona:
+    - **mesa_id**: Número de mesa (pasará a estado OCUPADA)
+    - **items**: Lista de productos con cantidad y notas especiales
+    
+    El pedido se crea automáticamente con estado ABIERTO.
+    """
     try:
-        # Pasamos mesa_id y el ID del usuario que viene del TOKEN
-        return service.create(db, mesa_id=payload.mesa_id, current_user_id=current_user.id)
+        return service.create(
+            db, 
+            mesa_id=payload.mesa_id, 
+            current_user_id=current_user.id,
+            items=payload.items
+        )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
@@ -32,20 +46,36 @@ def list_pedidos(
     db: Session = Depends(get_db), 
     current_user = Depends(get_current_active_user)
 ):
-    # COCINA: Solo lo pendiente por preparar
+    """
+    📊 Listar pedidos según el rol del usuario
+    
+    - **COCINA**: Solo pedidos ABIERTOS para preparar
+    - **MESERO**: Solo sus pedidos (creados por él)
+    - **ADMIN**: Historial completo de todos los pedidos
+    """
     if current_user.rol == UserRole.COCINA:
         return service.get_pedidos_cocina(db)
     
-    # MESERO: Solo sus pedidos activos
     if current_user.rol == UserRole.MESERO:
         return service.get_pedidos_by_usuario(db, usuario_id=current_user.id)
     
-    # ADMIN: Todo el historial
     return service.get_all(db)
 
 
 @router.get("/{pedido_id}", response_model=PedidoResponse)
-def get_pedido(pedido_id: int, db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
+def get_pedido(
+    pedido_id: int, 
+    db: Session = Depends(get_db), 
+    _current_user = Depends(get_current_active_user)  # type: ignore[unused-variable]
+):
+    """
+    🔍 Obtener detalles completos de un pedido
+    
+    Retorna:
+    - Mesa y datos del mesero
+    - Todos los items/platos con cantidad, precio y notas
+    - Estado actual del pedido
+    """
     try:
         return service.get_by_id(db, pedido_id)
     except Exception as exc:
@@ -54,30 +84,68 @@ def get_pedido(pedido_id: int, db: Session = Depends(get_db), _current_user = De
 
 @router.delete("/{pedido_id}")
 def delete_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))):
+    """
+    🗑️ Eliminar un pedido completo
+    
+    Solo se puede eliminar pedidos en estado ABIERTO.
+    La mesa se libera automáticamente.
+    """
     try:
         return service.delete(db, pedido_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-#  ENDPOINT MODIFICADO: Ahora acepta una lista de productos
-@router.post("/{pedido_id}/detalles", status_code=status.HTTP_201_CREATED, summary="Add productos al pedido")
-def add_detalles_masivos(
+
+@router.patch("/{pedido_id}/items", response_model=dict)
+def update_pedido_items(
     pedido_id: int, 
-    payload: DetallePedidoBulkCreate, # 👈 Cambio de Schema a Bulk
+    payload: PedidoUpdateItems,
     db: Session = Depends(get_db), 
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
     """
-    Agrega varios productos al pedido de una sola vez.
-    Ideal para cuando el mesero toma la orden completa de la mesa.
+    ✏️ Editar items de un pedido abierto
+    
+    El mesero puede:
+    - **Cambiar cantidad** de un plato
+    - **Actualizar notas** especiales (sin cebolla, extra picante, etc)
+    - **Eliminar items** (enviando cantidad = 0)
+    
+    Ejemplo:
+    ```json
+    {
+      "items": [
+        {"detalle_id": 5, "cantidad": 2, "descripcion": "Sin cebolla"},
+        {"detalle_id": 6, "cantidad": 0}  // Esto lo elimina
+      ]
+    }
+    ```
     """
     try:
-        # Llamamos al nuevo método 'add_multiple_detalles' que crearemos en el service
+        return service.update_items(db, pedido_id, payload.items)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+#  AGREGAR MÁS PRODUCTOS A UN PEDIDO ABIERTO
+@router.post("/{pedido_id}/detalles", status_code=status.HTTP_201_CREATED)
+def add_detalles_masivos(
+    pedido_id: int, 
+    payload: DetallePedidoBulkCreate,
+    db: Session = Depends(get_db), 
+    current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
+):
+    """
+    ➕ Agregar más productos a un pedido ya abierto
+    
+    Útil cuando el cliente ordena algo más durante la cena.
+    Solo funciona con pedidos en estado ABIERTO.
+    """
+    try:
         return service.add_multiple_detalles(
             db, 
             pedido_id=pedido_id, 
             items=payload.items,
-            usuario_id=current_user.id  # Pasamos el ID del usuario para auditoría o reglas de negocio 
+            usuario_id=current_user.id
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -89,6 +157,14 @@ def cerrar_pedido(
     db: Session = Depends(get_db), 
     _current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))  # type: ignore[unused-variable]
 ):
+    """
+    ✅ Cerrar un pedido (cocina finaliza la preparación)
+    
+    Cambios:
+    - Pedido pasa a estado CERRADO
+    - Mesa se libera (pasa a LIBRE)
+    - Ya no se pueden hacer modificaciones
+    """
     try:
         return service.cerrar_pedido(db, pedido_id)
     except Exception as exc:
@@ -101,6 +177,14 @@ def create_pago(
     db: Session = Depends(get_db), 
     _current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))  # type: ignore[unused-variable]
 ):
+    """
+    💳 Procesar el pago de un pedido
+    
+    Requisitos:
+    - El pedido debe estar CERRADO
+    - No puede tener un pago registrado previamente
+    - Se calcula suma automática de todos los items
+    """
     try:
         return service.create_pago(db, pedido_id)
     except Exception as exc:

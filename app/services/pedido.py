@@ -45,27 +45,63 @@ class PedidoService:
         return pedido
 
     # ------------------------
-    # CREATE
+    # CREATE - Crear pedido completo con mesa e items en una acción
     # ------------------------
 
-    def create(self, db: Session, mesa_id: int, current_user_id: int) -> Pedido:
+    def create(self, db: Session, mesa_id: int, current_user_id: int, items: list) -> Pedido:
+        """
+        Crea un pedido con mesa y todos sus productos de una sola vez.
+        
+        Args:
+            db: Sesión de base de datos
+            mesa_id: ID de la mesa
+            current_user_id: ID del mesero que crea el pedido
+            items: Lista de items (DetallePedidoCreate) con producto_id, cantidad, descripcion
+        
+        Returns:
+            Pedido creado con todos sus detalles
+        """
+        # Validar mesa
         mesa = db.query(Mesa).filter(Mesa.id == mesa_id).first()
-
         if not mesa:
             raise NotFoundError("Mesa no encontrada")
 
         if mesa.estado == MesaEstado.OCUPADA:
             raise BadRequestError("La mesa ya está ocupada")
 
+        if not items or len(items) == 0:
+            raise BadRequestError("Debe agregar al menos un producto al pedido")
+
+        # Crear pedido
         pedido = self.pedido_repo.create(db, {
             "mesa_id": mesa_id,
             "usuario_id": current_user_id,
             "estado": PedidoEstado.ABIERTO
         })
 
-        # Mesa pasa a ocupada
-        mesa.estado = MesaEstado.OCUPADA
+        # Crear todos los detalles
+        for item in items:
+            producto = self.producto_repo.get_by_id(db, item.producto_id)
+            
+            if not producto or not producto.disponible:
+                db.rollback()
+                raise BadRequestError(f"Producto ID {item.producto_id} no disponible o no existe")
 
+            subtotal = producto.precio * item.cantidad
+
+            self.detalle_repo.create(db, {
+                "pedido_id": pedido.id,
+                "producto_id": item.producto_id,
+                "cantidad": item.cantidad,
+                "precio_unitario": producto.precio,
+                "subtotal": subtotal,
+                "descripcion": item.descripcion,
+                "estado": DetallePedidoEstado.PENDIENTE
+            })
+
+        # Marcar mesa como ocupada
+        mesa.estado = MesaEstado.OCUPADA
+        
         db.commit()
         return pedido
 
@@ -90,6 +126,61 @@ class PedidoService:
         updated = self.pedido_repo.update(db, pedido, payload)
         db.commit()
         return updated
+
+    def update_items(self, db: Session, pedido_id: int, items_to_update: list) -> dict:
+        """
+        Actualiza múltiples items de un pedido.
+        Se pueden cambiar cantidades, descripciones o eliminar items.
+        
+        Args:
+            db: Sesión de base de datos
+            pedido_id: ID del pedido
+            items_to_update: Lista de {detalle_id, cantidad (opcional), descripcion (opcional)}
+                            Si cantidad es 0 o None, el item se elimina
+        
+        Returns:
+            Diccionario con resumen de cambios
+        """
+        pedido = self.get_by_id(db, pedido_id)
+
+        if pedido.estado == PedidoEstado.CERRADO:
+            raise BadRequestError("No se puede editar un pedido ya cerrado")
+
+        if not items_to_update or len(items_to_update) == 0:
+            raise BadRequestError("Debe proporcionar items a actualizar")
+
+        cambios = {"actualizados": [], "eliminados": []}
+
+        for item in items_to_update:
+            detalle = self.detalle_repo.get_by_id(db, item.detalle_id)
+            
+            if not detalle or detalle.pedido_id != pedido_id:
+                raise NotFoundError(f"Detalle {item.detalle_id} no pertenece a este pedido")
+
+            # Si cantidad es 0 o None, eliminar el item
+            if item.cantidad is None or item.cantidad == 0:
+                self.detalle_repo.delete(db, item.detalle_id)
+                cambios["eliminados"].append(item.detalle_id)
+            else:
+                # Actualizar cantidad y descripción si es necesario
+                update_data = {"cantidad": item.cantidad}
+                
+                if item.descripcion is not None:
+                    update_data["descripcion"] = item.descripcion
+                
+                # Recalcular subtotal
+                update_data["subtotal"] = detalle.precio_unitario * item.cantidad
+                
+                self.detalle_repo.update(db, detalle, update_data)
+                cambios["actualizados"].append(item.detalle_id)
+
+        # Validar que el pedido no quede sin productos
+        if len(pedido.detalles) - len(cambios["eliminados"]) == 0:
+            db.rollback()
+            raise BadRequestError("No se puede dejar un pedido sin productos")
+
+        db.commit()
+        return cambios
 
     # ------------------------
     # DELETE

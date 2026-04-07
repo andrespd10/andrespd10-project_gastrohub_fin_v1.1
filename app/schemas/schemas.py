@@ -94,24 +94,29 @@ class DetallePedidoBase(BaseModel):
     estado: DetallePedidoEstado = DetallePedidoEstado.PENDIENTE
 
 class DetallePedidoCreate(BaseModel):
+    """Schema para crear un detalle de pedido (item/plato del pedido)"""
     producto_id: int
     cantidad: int = Field(..., gt=0)
+    descripcion: Optional[str] = Field(None, max_length=500, description="Notas especiales: sin cebolla, extra picante, etc")
 
 # Para enviar varios productos a un pedido en un solo JSON
 class DetallePedidoBulkCreate(BaseModel):
+    """Schema para agregar múltiples items a un pedido existente"""
     items: List[DetallePedidoCreate]
 
 class DetallePedidoUpdate(BaseModel):
-    cantidad: Optional[int] = None
-    estado: Optional[DetallePedidoEstado] = None
+    """Schema para actualizar estado del item (SOLO COCINA)"""
+    estado: DetallePedidoEstado
 
 class DetallePedidoResponse(BaseModel):
+    """Respuesta con detalles completos de un item del pedido"""
     id: int
     producto_id: int
     producto: Optional[ProductoSimple] = None 
     cantidad: int
     precio_unitario: Decimal
     subtotal: Decimal
+    descripcion: Optional[str] = None
     estado: DetallePedidoEstado
     model_config = ConfigDict(from_attributes=True)
 
@@ -134,9 +139,22 @@ class PedidoBase(BaseModel):
     estado: PedidoEstado = PedidoEstado.ABIERTO
 
 class PedidoCreate(BaseModel):
-    mesa_id: int 
+    """Schema para crear un pedido completo con mesa e items en una sola acción"""
+    mesa_id: int
+    items: List[DetallePedidoCreate] = Field(..., min_length=1, description="Al menos un producto es requerido")
+
+class PedidoUpdateItem(BaseModel):
+    """Schema para actualizar/editar un item dentro de un pedido"""
+    detalle_id: int = Field(..., description="ID del item/plato a modificar")
+    cantidad: Optional[int] = Field(None, gt=0, description="Nueva cantidad. Si es 0, el item será eliminado")
+    descripcion: Optional[str] = Field(None, max_length=500, description="Actualizar notas especiales")
+
+class PedidoUpdateItems(BaseModel):
+    """Schema para actualizar múltiples items de un pedido a la vez"""
+    items: List[PedidoUpdateItem] = Field(..., min_length=1)
 
 class PedidoUpdate(BaseModel):
+    """Schema para actualizar estado general del pedido"""
     estado: Optional[PedidoEstado] = None
 
 class PedidoResponse(BaseModel):

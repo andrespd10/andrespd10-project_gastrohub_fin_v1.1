@@ -25,17 +25,18 @@ class UsuarioService:
         return {"access_token": token, "token_type": "bearer"}
 
     # ------------------------
-    # CREAR USUARIO (Tu lógica original)
+    # CREAR USUARIO (ADMIN puede crear cualquier rol)
     # ------------------------
     def create(self, db: Session, payload: dict, actor_role: UserRole = None) -> Usuario:
+        """
+        Crear usuario. Solo ADMIN puede crear usuarios de cualquier rol.
+        """
         if actor_role is None:
             if payload.get("rol") != UserRole.ADMIN:
                 raise ForbiddenError("Solo se permite registro como ADMIN")
         else:
             if actor_role != UserRole.ADMIN:
                 raise ForbiddenError("Solo un administrador puede crear usuarios")
-            if payload.get("rol") == UserRole.ADMIN:
-                raise ForbiddenError("No se pueden crear más administradores")
 
         existing = self.repo.get_by_email(db, payload["email"])
         if existing:
@@ -154,9 +155,3 @@ class UsuarioService:
         deleted = self.repo.delete(db, usuario_id)
         db.commit()
         return deleted
-
-    # ------------------------
-    # GET POR EMAIL
-    # ------------------------
-    def get_by_email(self, db: Session, email: str) -> Usuario:
-        return self.repo.get_by_email(db, email)

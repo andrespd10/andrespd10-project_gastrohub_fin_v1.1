@@ -74,7 +74,9 @@ Ahora si vuelve a correr el servidor de nuevo con uvicorn app.main:app --reload 
 
 - API local: `http://127.0.0.1:3000`
 
-## Credenciales de Prueba (demo)
+## 👥 Credenciales de Prueba (demo)
+
+**Nota**: No hay registro público. Los usuarios deben ser creados por un ADMIN existente.
 
 | Rol      | Email                | Password     |
 |----------|----------------------|--------------|
@@ -90,7 +92,6 @@ Ahora si vuelve a correr el servidor de nuevo con uvicorn app.main:app --reload 
 ## Endpoints Principales
 
 ### Auth (`/auth`)
-- `POST /auth/register` - Registro de usuario (ADMIN - restringido)
 - `POST /auth/login` - Login y token de acceso
 - `POST /auth/request-password-reset` - Solicitar token de recuperación (RESET)
 - `POST /auth/reset-password` - Confirmar cambio de contraseña
@@ -151,9 +152,11 @@ Ahora si vuelve a correr el servidor de nuevo con uvicorn app.main:app --reload 
 - `ACCESS_TOKEN` tiene duración en `ACCESS_TOKEN_EXPIRE_MINUTES` (60 minutos)
 - `RESET_TOKEN` tiene duración en `RESET_TOKEN_EXPIRE_MINUTES` (15 minutos)
 - Roles:
-  - `ADMIN`: control total
+  - `ADMIN`: control total del sistema, gestión de usuarios (puede crear más admins)
   - `MESERO`: operaciones de mesas, pedidos y pagos
   - `COCINA`: gestión de estado de pedidos
+
+**Nota**: Los usuarios solo pueden ser creados por administradores existentes. No hay registro público.
 
 ## Desarrollo local con MySQL
 

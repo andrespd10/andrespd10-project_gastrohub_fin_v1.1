@@ -13,23 +13,7 @@ from app.schemas.schemas import (
     UsuarioResponse
 )
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
-
-# ------------------------
-# REGISTRAR
-# ------------------------
-@router.post("/register", response_model=UsuarioResponse)
-def register(payload: UsuarioCreate, db: Session = Depends(get_db)):
-    try:
-        return UsuarioService().create(
-            db,
-            payload.model_dump(),
-            actor_role=None
-        )
-    except ForbiddenError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-    except BadRequestError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+router = APIRouter(prefix="/auth", tags=["Autenticación - Login y Recuperación"])
 
 # ------------------------
 # INICIAR SESIÓN

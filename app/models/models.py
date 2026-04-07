@@ -84,6 +84,7 @@ class DetallePedido(Base):
     cantidad = Column(Integer, nullable=False)
     precio_unitario = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(10, 2), nullable=False)
+    descripcion = Column(String(500), nullable=True)
     estado = Column(Enum(DetallePedidoEstado), default=DetallePedidoEstado.PENDIENTE, nullable=False)
 
     # Relaciones

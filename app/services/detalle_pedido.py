@@ -19,14 +19,15 @@ class DetallePedidoService:
         return self.repo.get_all(db, skip=skip, limit=limit)
 
     def update(self, db: Session, detalle_id: int, payload: dict) -> DetallePedido:
+        """
+        Actualiza solo el estado del detalle (usado por COCINA).
+        Las cantidades se manejan desde el servicio de pedidos.
+        """
         detalle = self.get_by_id(db, detalle_id)
         if detalle.pedido.estado == "CERRADO":
             raise BadRequestError("No se puede modificar el detalle de un pedido cerrado")
 
-        if "cantidad" in payload and payload["cantidad"] is not None:
-            cantidad = payload["cantidad"]
-            detalle.subtotal = detalle.precio_unitario * cantidad
-
+        # Solo actualizar estado, no cantidad ni subtotal
         detalle = self.repo.update(db, detalle, payload)
         db.commit()
         return detalle

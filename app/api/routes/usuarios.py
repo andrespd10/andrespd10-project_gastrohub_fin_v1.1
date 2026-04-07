@@ -9,7 +9,7 @@ from app.services.exceptions import ForbiddenError, BadRequestError, NotFoundErr
 from app.schemas.schemas import UsuarioCreate, UsuarioResponse, UsuarioUpdate
 from app.models import Usuario  # Para tipado
 
-router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+router = APIRouter(prefix="/usuarios", tags=["Usuarios - Gestión de Personal"])
 service = UsuarioService()
 
 
@@ -23,12 +23,13 @@ def create_usuario(
     current_user: Usuario = Depends(get_current_active_user)
 ):
     """
-    Crear usuario.
-
-    Reglas:
-    - SOLO ADMIN puede crear usuarios
-    - ADMIN solo puede crear MESERO o COCINA
-    - NO puede crear ADMIN (según tu lógica actual)
+    👤 Crear nuevo usuario del sistema
+    
+    **Solo ADMIN puede crear usuarios.**
+    
+    Reglas de creación:
+    - ADMIN puede crear ADMIN, MESERO o COCINA
+    - Requiere autenticación como ADMIN
     """
     try:
         return service.create(
@@ -150,3 +151,4 @@ def delete_usuario(
         raise HTTPException(status_code=404, detail=str(exc))
     except BadRequestError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+ 
