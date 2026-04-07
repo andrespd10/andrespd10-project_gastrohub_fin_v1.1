@@ -155,3 +155,9 @@ class UsuarioService:
         deleted = self.repo.delete(db, usuario_id)
         db.commit()
         return deleted
+
+    # ------------------------
+    # GET POR EMAIL (Necesario para autenticación)
+    # ------------------------
+    def get_by_email(self, db: Session, email: str) -> Usuario:
+        return self.repo.get_by_email(db, email)
