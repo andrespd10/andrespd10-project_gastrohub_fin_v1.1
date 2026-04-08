@@ -1,10 +1,8 @@
 import sys
 import os
 
-# Ajustar la ruta de trabajo a la raíz del repositorio
-repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.chdir(repo_root)
-sys.path.append(repo_root)
+# Esto le dice al script que mire una carpeta hacia atrás para encontrar 'app'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
