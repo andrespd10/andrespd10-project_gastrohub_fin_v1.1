@@ -116,22 +116,26 @@ class UsuarioService:
         if not usuario:
             raise NotFoundError("Usuario no encontrado")
 
+        # Regla general: Solo ADMIN o el mismo dueño pueden editar
         if current_user.rol != UserRole.ADMIN and current_user.id != usuario_id:
             raise ForbiddenError("No puedes modificar este usuario")
 
+        # Validación de Email
         if "email" in payload:
             existing = self.repo.get_by_email(db, payload["email"])
             if existing and existing.id != usuario_id:
                 raise BadRequestError("El email ya está en uso")
 
+        # Hash de password si viene en el payload
         if "password" in payload and payload["password"]:
             payload["password"] = get_password_hash(payload["password"])
 
+        # --- LÓGICA DE ROLES CORREGIDA ---
         if "rol" in payload:
             if current_user.rol != UserRole.ADMIN:
-                raise ForbiddenError("Solo ADMIN puede cambiar roles")
-            if payload["rol"] == UserRole.ADMIN:
-                raise ForbiddenError("No se puede asignar rol ADMIN")
+                raise ForbiddenError("No tienes permisos de administrador para cambiar roles")
+            # Aquí ya no bloqueamos el UserRole.ADMIN, permitimos que el admin lo asigne.
+        # ---------------------------------
 
         usuario = self.repo.update(db, usuario, payload)
         db.commit()
