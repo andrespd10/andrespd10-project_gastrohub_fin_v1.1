@@ -48,13 +48,15 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
 # ------------------------
 # OTP (One Time Password)
 # ------------------------
-@router.post("/request-otp")
-async def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-    return await UsuarioService().send_otp_email(db, payload.email)
 
-@router.post("/verify-otp", response_model=Token)
-def verify_otp(payload: LoginRequest, db: Session = Depends(get_db)):
-    try:
-        return UsuarioService().verify_otp_and_login(db, payload.email, payload.password)
-    except BadRequestError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+
+# @router.post("/request-otp")
+# async def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+#     return await UsuarioService().send_otp_email(db, payload.email)
+
+# @router.post("/verify-otp", response_model=Token)
+# def verify_otp(payload: LoginRequest, db: Session = Depends(get_db)):
+#     try:
+#         return UsuarioService().verify_otp_and_login(db, payload.email, payload.password)
+#     except BadRequestError as exc:
+#         raise HTTPException(status_code=400, detail=str(exc))
