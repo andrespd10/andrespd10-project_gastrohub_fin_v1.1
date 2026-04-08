@@ -31,10 +31,10 @@ class Settings(BaseSettings):
     MAIL_ENABLED: bool = Field(True, env="MAIL_ENABLED")
     
     # --- Frontend ---
-    FRONTEND_URL: str = Field("http://localhost:3000", env="FRONTEND_URL")
+    FRONTEND_URL: str = Field("http://localhost:4200", env="FRONTEND_URL")
 
     # --- Seguridad de Red ---
-    ALLOWED_HOSTS: str = Field("*", env="ALLOWED_HOSTS")
+    ALLOWED_HOSTS: str = Field("http://localhost:4200", env="ALLOWED_HOSTS")
 
     def get_allowed_hosts(self) -> List[str]:
         if self.ALLOWED_HOSTS == "*":
