@@ -1,27 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.api.deps import get_db, get_current_active_user, require_role
 from app.services.detalle_pedido import DetallePedidoService
 from app.schemas.schemas import DetallePedidoResponse, DetallePedidoUpdate
 from app.models.enums import UserRole
 
-router = APIRouter(prefix="/detalle-pedidos", tags=["Órdenes de Cocina - Detalles"])
+# El tag ahora refleja que es la vista de trabajo del cocinero
+router = APIRouter(prefix="/detalle-pedidos", tags=["Producción - Vista de Cocina"])
 service = DetallePedidoService()
 
 
-@router.get("/", response_model=list[DetallePedidoResponse])
-def list_detalles(db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
+@router.get("/", response_model=List[DetallePedidoResponse])
+def list_detalles(
+    db: Session = Depends(get_db), 
+    current_user = Depends(require_role([UserRole.COCINA, UserRole.ADMIN]))
+):
     """
-    📋 Listar todos los items/platos de los pedidos
+    **LISTA DE TRABAJO (COCINA)**
+    
+    Este endpoint devuelve exclusivamente los platos que están **PENDIENTES** o en **PREPARACIÓN**. Una vez marcados como LISTO, desaparecen de aquí.
     """
     return service.get_all(db)
 
 
 @router.get("/{detalle_id}", response_model=DetallePedidoResponse)
-def get_detalle(detalle_id: int, db: Session = Depends(get_db), _current_user = Depends(get_current_active_user)):  # type: ignore[unused-variable]
+def get_detalle(
+    detalle_id: int, 
+    db: Session = Depends(get_db), 
+    _current_user = Depends(get_current_active_user)
+):
     """
-    🔍 Obtener detalles de un item específico
+    Obtener información técnica de un ítem específico.
     """
     try:
         return service.get_by_id(db, detalle_id)
@@ -37,14 +48,13 @@ def update_detalle(
     current_user = Depends(require_role([UserRole.COCINA]))
 ):
     """
-    🍳 Actualizar estado de un plato (SOLO COCINA)
+    **ACTUALIZAR PROGRESO (SOLO COCINA)**
     
-    Estados disponibles:
-    - **PENDIENTE**: Orden recibida, no iniciada
-    - **PREPARANDO**: Se está cocinando
-    - **LISTO**: Listo para servir
+    Permite al cocinero cambiar el estado del plato:
+    - De **PENDIENTE**  **PREPARANDO**
+    - De **PREPARANDO**  **LISTO**
     
-    La cocina actualiza aquí solo el estado, no las cantidades/items.
+    *Nota: Si el pedido ya fue pagado/cerrado, no permitirá cambios.*
     """
     try:
         return service.update(db, detalle_id, payload.model_dump(exclude_unset=True))
@@ -59,9 +69,9 @@ def delete_detalle(
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
     """
-    🗑️ Eliminar un plato/item del pedido
+    **ELIMINAR ÍTEM**
     
-    Solo se puede eliminar si el pedido aún está ABIERTO.
+    Solo permitido para Meseros/Admin si hubo un error en la orden y el pedido sigue ABIERTO.
     """
     try:
         return service.delete(db, detalle_id)

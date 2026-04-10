@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models import DetallePedido
 from app.repositories import DetallePedidoRepository
 from app.services.exceptions import NotFoundError, BadRequestError
+from typing import List  
 
 
 class DetallePedidoService:
@@ -14,8 +15,12 @@ class DetallePedidoService:
         if not detalle:
             raise NotFoundError(f"DetallePedido con id {detalle_id} no encontrado")
         return detalle
-
-    def get_all(self, db: Session, skip: int = 0, limit: int = 100):
+    
+    def get_all(self, db: Session, skip: int = 0, limit: int = 100) -> List[DetallePedido]:
+        """
+        Obtiene los detalles filtrados para el cocinero (Pendientes/Preparando)
+        según la lógica definida en el repositorio.
+        """
         return self.repo.get_all(db, skip=skip, limit=limit)
 
     def update(self, db: Session, detalle_id: int, payload: dict) -> DetallePedido:

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import httpx
 
 from app.db.session import get_db
 from app.services.usuario import UsuarioService
@@ -9,17 +10,33 @@ from app.schemas.schemas import (
     Token,
     PasswordResetRequest,
     PasswordResetConfirm,
-    UsuarioCreate,
-    UsuarioResponse
 )
+from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Autenticación - Login y Recuperación"])
 
 # ------------------------
 # INICIAR SESIÓN
 # ------------------------
+def verify_recaptcha(token: str) -> bool:
+    try:
+        response = httpx.post(
+            settings.RECAPTCHA_VERIFY_URL,
+            data={"secret": settings.RECAPTCHA_SECRET_KEY, "response": token},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("success", False)
+    except Exception:
+        return False
+
+
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    if not verify_recaptcha(payload.recaptcha_token):
+        raise HTTPException(status_code=400, detail="ReCaptcha no válido")
+
     try:
         return UsuarioService().login(db, payload.email, payload.password)
     except (NotFoundError, BadRequestError) as exc:
@@ -60,3 +77,4 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
 #         return UsuarioService().verify_otp_and_login(db, payload.email, payload.password)
 #     except BadRequestError as exc:
 #         raise HTTPException(status_code=400, detail=str(exc))
+
