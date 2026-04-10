@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
     RATE_LIMIT_LOGIN: int = Field(3, env="RATE_LIMIT_LOGIN")
     RATE_LIMIT_STORAGE_URL: str = Field("memory://", env="RATE_LIMIT_STORAGE_URL")
+    RECAPTCHA_SECRET_KEY: str = Field(..., env="RECAPTCHA_SECRET_KEY")
+    RECAPTCHA_VERIFY_URL: str = Field("https://www.google.com/recaptcha/api/siteverify", env="RECAPTCHA_VERIFY_URL")
 
     # --- Modo Desarrollo ---
     DEBUG: bool = Field(True, env="DEBUG")

@@ -184,6 +184,7 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
+    recaptcha_token: str = Field(..., min_length=10)
 
 # Reconstruir para manejar referencias circulares de detalles
 PedidoResponse.model_rebuild()
