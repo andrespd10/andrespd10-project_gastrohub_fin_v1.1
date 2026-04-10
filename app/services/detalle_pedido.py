@@ -1,0 +1,49 @@
+from sqlalchemy.orm import Session
+
+from app.models import DetallePedido
+from app.repositories import DetallePedidoRepository
+from app.services.exceptions import NotFoundError, BadRequestError
+from typing import List  
+
+
+class DetallePedidoService:
+    def __init__(self, repository: DetallePedidoRepository = None):
+        self.repo = repository or DetallePedidoRepository()
+
+    def get_by_id(self, db: Session, detalle_id: int) -> DetallePedido:
+        detalle = self.repo.get_by_id(db, detalle_id)
+        if not detalle:
+            raise NotFoundError(f"DetallePedido con id {detalle_id} no encontrado")
+        return detalle
+    
+    def get_all(self, db: Session, skip: int = 0, limit: int = 100) -> List[DetallePedido]:
+        """
+        Obtiene los detalles filtrados para el cocinero (Pendientes/Preparando)
+        según la lógica definida en el repositorio.
+        """
+        return self.repo.get_all(db, skip=skip, limit=limit)
+
+    def update(self, db: Session, detalle_id: int, payload: dict) -> DetallePedido:
+        """
+        Actualiza solo el estado del detalle (usado por COCINA).
+        Las cantidades se manejan desde el servicio de pedidos.
+        """
+        detalle = self.get_by_id(db, detalle_id)
+        if detalle.pedido.estado == "CERRADO":
+            raise BadRequestError("No se puede modificar el detalle de un pedido cerrado")
+
+        # Solo actualizar estado, no cantidad ni subtotal
+        detalle = self.repo.update(db, detalle, payload)
+        db.commit()
+        return detalle
+
+    def delete(self, db: Session, detalle_id: int) -> DetallePedido:
+        detalle = self.get_by_id(db, detalle_id)
+        if detalle.pedido.estado == "CERRADO":
+            raise BadRequestError("No se puede eliminar el detalle de un pedido cerrado")
+
+        deleted = self.repo.delete(db, detalle_id)
+        if not deleted:
+            raise NotFoundError(f"DetallePedido con id {detalle_id} no encontrado")
+        db.commit()
+        return deleted
