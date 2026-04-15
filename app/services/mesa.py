@@ -12,12 +12,12 @@ class MesaService:
         self.repo = repository or MesaRepository()
 
     def create(self, db: Session, payload: dict) -> Mesa:
-        # 🔍 Validar número único
+        # Validar número único
         existing = db.query(Mesa).filter(Mesa.numero == payload["numero"]).first()
         if existing:
             raise BadRequestError("Ya existe una mesa con ese número")
 
-        # 🔥 IMPORTANTE: Forzar estado inicial SIEMPRE LIBRE
+        # IMPORTANTE: Forzar estado inicial SIEMPRE LIBRE
         payload["estado"] = "LIBRE"
 
         mesa = self.repo.create(db, payload)
@@ -40,7 +40,7 @@ class MesaService:
     def delete(self, db: Session, mesa_id: int):
         mesa = self.get_by_id(db, mesa_id)
 
-        # 🔒 No eliminar si tiene pedidos
+        # No eliminar si tiene pedidos
         if mesa.pedidos:
             raise BadRequestError("No se puede eliminar una mesa con pedidos asociados")
 

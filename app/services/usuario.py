@@ -21,7 +21,7 @@ class UsuarioService:
         if not user or not user.activo or not verify_password(password, user.password):
             raise BadRequestError("Credenciales inválidas")
         
-        token = create_token(subject=user.email, token_type=TokenType.ACCESS)
+        token = create_token(subject=user.email, token_type=TokenType.ACCESS, user_id=user.id)
         return {"access_token": token, "token_type": "bearer"}
 
     # ------------------------

@@ -47,7 +47,7 @@ def list_pedidos(
     current_user = Depends(get_current_active_user)
 ):
     """
-    📊 Listar pedidos según el rol del usuario
+    Listar pedidos según el rol del usuario
     
     - **COCINA**: Solo pedidos ABIERTOS para preparar
     - **MESERO**: Solo sus pedidos (creados por él)
@@ -69,7 +69,7 @@ def get_pedido(
     _current_user = Depends(get_current_active_user)  # type: ignore[unused-variable]
 ):
     """
-    🔍 Obtener detalles completos de un pedido
+    Obtener detalles completos de un pedido
     
     Retorna:
     - Mesa y datos del mesero
@@ -85,7 +85,7 @@ def get_pedido(
 @router.delete("/{pedido_id}")
 def delete_pedido(pedido_id: int, db: Session = Depends(get_db), current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))):
     """
-    🗑️ Eliminar un pedido completo
+    Eliminar un pedido completo
     
     Solo se puede eliminar pedidos en estado ABIERTO.
     La mesa se libera automáticamente.
@@ -104,7 +104,7 @@ def update_pedido_items(
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
     """
-    ✏️ Editar items de un pedido abierto
+    Editar items de un pedido abierto
     
     El mesero puede:
     - **Cambiar cantidad** de un plato
@@ -135,7 +135,7 @@ def add_detalles_masivos(
     current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))
 ):
     """
-    ➕ Agregar más productos a un pedido ya abierto
+    Agregar más productos a un pedido ya abierto
     
     Útil cuando el cliente ordena algo más durante la cena.
     Solo funciona con pedidos en estado ABIERTO.
@@ -158,7 +158,7 @@ def cerrar_pedido(
     _current_user = Depends(require_role([UserRole.MESERO, UserRole.ADMIN]))  # type: ignore[unused-variable]
 ):
     """
-    ✅ Cerrar un pedido (cocina finaliza la preparación)
+    Cerrar un pedido (cocina finaliza la preparación)
     
     Cambios:
     - Pedido pasa a estado CERRADO
@@ -178,7 +178,7 @@ def create_pago(
     _current_user = Depends(require_role([UserRole.ADMIN, UserRole.MESERO]))  # type: ignore[unused-variable]
 ):
     """
-    💳 Procesar el pago de un pedido
+    Procesar el pago de un pedido
     
     Requisitos:
     - El pedido debe estar CERRADO
