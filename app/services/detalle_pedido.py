@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.enums import PedidoEstado, DetallePedidoEstado
 from app.models import DetallePedido
 from app.repositories import DetallePedidoRepository
 from app.services.exceptions import NotFoundError, BadRequestError
@@ -38,12 +39,29 @@ class DetallePedidoService:
         return detalle
 
     def delete(self, db: Session, detalle_id: int) -> DetallePedido:
+        # 1. Obtenemos el detalle (producto)
         detalle = self.get_by_id(db, detalle_id)
-        if detalle.pedido.estado == "CERRADO":
+        
+        # 2. Validamos que el pedido general no esté CERRADO
+        # Usamos el Enum PedidoEstado para evitar errores de dedo
+        if detalle.pedido.estado == PedidoEstado.CERRADO:
             raise BadRequestError("No se puede eliminar el detalle de un pedido cerrado")
 
+        # 3. VALIDACIÓN DE SEGURIDAD:
+        # Si el cocinero ya lo puso en PREPARANDO o ya está LISTO, bloqueamos el borrado.
+        if detalle.estado != DetallePedidoEstado.PENDIENTE:
+            raise BadRequestError(
+                f"No se puede eliminar este producto porque ya está en estado: {detalle.estado.value}. "
+                "Debe solicitar la cancelación a cocina."
+            )
+
+        # 4. Procedemos con la eliminación si sigue PENDIENTE
+        # Guardamos la referencia para el retorno antes de borrar
+        detalle_temp = detalle
+        
         deleted = self.repo.delete(db, detalle_id)
         if not deleted:
             raise NotFoundError(f"DetallePedido con id {detalle_id} no encontrado")
+        
         db.commit()
-        return deleted
+        return detalle_temp
