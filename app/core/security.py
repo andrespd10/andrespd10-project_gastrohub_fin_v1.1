@@ -32,6 +32,7 @@ def create_token(
     role: Optional[str] = None,
     token_type: str = TokenType.ACCESS,
     expires_delta: Optional[timedelta] = None,
+    user_id: Optional[int] = None,
 ) -> str:
     """Crea un token JWT firmado."""
     if expires_delta is None:
@@ -52,6 +53,10 @@ def create_token(
 
     if role:
         payload["role"] = role
+
+    if user_id is not None:
+        payload["user_id"] = user_id
+
 
     # Firmamos el token con nuestra SECRET_KEY y el Algoritmo definido en settings
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

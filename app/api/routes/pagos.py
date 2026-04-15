@@ -16,7 +16,7 @@ def list_pagos(
     _current_user = Depends(require_role([UserRole.ADMIN]))  # type: ignore[unused-variable]
 ):
     """
-    📊 Listar todos los pagos registrados
+    Listar todos los pagos registrados
     
     **Solo ADMIN** puede ver el historial completo de transacciones.
     """
@@ -30,7 +30,7 @@ def get_pago(
     _current_user = Depends(require_role([UserRole.ADMIN]))  # type: ignore[unused-variable]
 ):
     """
-    🔍 Obtener detalles de un pago específico
+    Obtener detalles de un pago específico
     
     Muestra monto total, fecha y pedido asociado.
     """

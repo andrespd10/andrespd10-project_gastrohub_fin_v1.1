@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from decimal import Decimal
+from app.models.enums import DetallePedidoEstado
 
 from app.models import Pedido, DetallePedido, Pago, Mesa
 from app.models.enums import PedidoEstado, DetallePedidoEstado, MesaEstado
@@ -186,24 +187,30 @@ class PedidoService:
     # DELETE
     # ------------------------
     def delete(self, db: Session, pedido_id: int):
-            pedido = self.get_by_id(db, pedido_id)
+        pedido = self.get_by_id(db, pedido_id)
 
-            # NO permitir eliminar pedidos cerrados
-            if pedido.estado == PedidoEstado.CERRADO:
-                raise BadRequestError("No se puede eliminar un pedido cerrado")
+        # 1. NO permitir eliminar pedidos ya cerrados
+        if pedido.estado == PedidoEstado.CERRADO:
+            raise BadRequestError("No se puede eliminar un pedido que ya está CERRADO.")
 
-            # liberar mesa si estaba abierto
-            if pedido.estado == PedidoEstado.ABIERTO:
-                pedido.mesa.estado = MesaEstado.LIBRE
+        # 2. VALIDACIÓN SOLICITADA: Bloqueo por avance en cocina
+        for detalle in pedido.detalles:
+            # Si el estado es PREPARANDO o LISTO, lanzamos el mensaje exacto
+            if detalle.estado in [DetallePedidoEstado.PREPARANDO, DetallePedidoEstado.LISTO]:
+                raise BadRequestError("No se puede eliminar un pedido que ya tiene productos en preparación o listos")
 
-            # Ejecutamos la eliminación
-            self.pedido_repo.delete(db, pedido_id)
-            db.commit()
-            
-            # CAMBIO CLAVE: No retornamos 'deleted'. 
-            # Simplemente retornamos True o nada.
-            return f"Pedido {pedido_id} eliminado exitosamente y mesa {pedido.mesa_id} liberada"
+        # 3. Liberar la mesa antes de borrar el registro
+        if pedido.mesa:
+            pedido.mesa.estado = MesaEstado.LIBRE
 
+        # Guardamos el ID para el mensaje de confirmación
+        mesa_id = pedido.mesa_id
+        
+        # 4. Ejecutamos la eliminación física en la base de datos
+        self.pedido_repo.delete(db, pedido_id)
+        db.commit()
+        
+        return f"Pedido {pedido_id} eliminado exitosamente y mesa {mesa_id} liberada"
     # ------------------------
     # DETALLE PEDIDO (Individual y Masivo)
     # ------------------------
@@ -277,18 +284,39 @@ class PedidoService:
     # ------------------------
 
     def cerrar_pedido(self, db: Session, pedido_id: int) -> Pedido:
+        # 1. Obtener el pedido por ID
         pedido = self.get_by_id(db, pedido_id)
 
+        # 2. Validar que el pedido no esté ya cerrado
         if pedido.estado == PedidoEstado.CERRADO:
             raise BadRequestError("El pedido ya está cerrado")
 
+        # 3. Validar que el pedido tenga productos
         if not pedido.detalles:
             raise BadRequestError("No se puede cerrar un pedido vacío")
 
-        pedido.estado = PedidoEstado.CERRADO
-        pedido.mesa.estado = MesaEstado.LIBRE
+        # 4. --- VALIDACIÓN DE INTEGRIDAD DE PRODUCTOS ---
+        # Recorremos cada producto del pedido para asegurar que la cocina terminó
+        for detalle in pedido.detalles:
+            # Si algún producto NO está en estado LISTO, lanzamos error
+            if detalle.estado != DetallePedidoEstado.LISTO:
+                raise BadRequestError(
+                    f"No se puede cerrar. El producto '{detalle.producto.nombre}' "
+                    f"aún está en estado: {detalle.estado.value}"
+                )
+        # ------------------------------------------------
 
+        # 5. Cambiar el estado del pedido a CERRADO
+        pedido.estado = PedidoEstado.CERRADO
+        
+        # 6. Liberar la mesa asociada (si existe)
+        if pedido.mesa:
+            pedido.mesa.estado = MesaEstado.LIBRE
+
+        # 7. Guardar cambios en la base de datos
         db.commit()
+        db.refresh(pedido)
+        
         return pedido
 
     # ------------------------
