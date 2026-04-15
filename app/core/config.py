@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     RECAPTCHA_SECRET_KEY: str = Field(..., env="RECAPTCHA_SECRET_KEY")
     RECAPTCHA_VERIFY_URL: str = Field("https://www.google.com/recaptcha/api/siteverify", env="RECAPTCHA_VERIFY_URL")
 
+
+
     # --- Modo Desarrollo ---
     DEBUG: bool = Field(True, env="DEBUG")
 
