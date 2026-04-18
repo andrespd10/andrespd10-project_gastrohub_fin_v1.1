@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Numeric
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+BOGOTA_TZ = timezone(timedelta(hours=-5))  # America/Bogota (UTC-5, sin horario de verano)
 
 from app.db.base import Base
 from app.models.enums import UserRole, MesaEstado, PedidoEstado, DetallePedidoEstado
@@ -62,7 +64,7 @@ class Pedido(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     mesa_id = Column(Integer, ForeignKey("mesas.id", ondelete="CASCADE"), nullable=False, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
-    fecha = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    fecha = Column(DateTime, default=lambda: datetime.now(BOGOTA_TZ), nullable=False)
     estado = Column(Enum(PedidoEstado), default=PedidoEstado.ABIERTO, nullable=False)
 
     # Relaciones - Estos nombres deben coincidir con PedidoResponse en schemas.py
@@ -101,7 +103,7 @@ class Pago(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     pedido_id = Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     total = Column(Numeric(10, 2), nullable=False)
-    fecha = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    fecha = Column(DateTime, default=lambda: datetime.now(BOGOTA_TZ), nullable=False)
 
     # Relación
     pedido = relationship("Pedido", back_populates="pago")
