@@ -52,7 +52,6 @@ class DetallePedidoService:
         if detalle.estado != DetallePedidoEstado.PENDIENTE:
             raise BadRequestError(
                 f"No se puede eliminar este producto porque ya está en estado: {detalle.estado.value}. "
-                "Debe solicitar la cancelación a cocina."
             )
 
         # 4. Procedemos con la eliminación si sigue PENDIENTE

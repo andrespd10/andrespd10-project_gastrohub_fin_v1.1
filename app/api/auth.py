@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 import httpx
 
@@ -10,8 +10,11 @@ from app.schemas.schemas import (
     Token,
     PasswordResetRequest,
     PasswordResetConfirm,
+    UsuarioResponse,
 )
 from app.core.config import settings
+from app.api.deps import get_current_user
+from app.models import Usuario
 
 router = APIRouter(prefix="/auth", tags=["Autenticación - Login y Recuperación"])
 
@@ -33,14 +36,49 @@ def verify_recaptcha(token: str) -> bool:
 
 
 @router.post("/login", response_model=Token)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     if not verify_recaptcha(payload.recaptcha_token):
         raise HTTPException(status_code=400, detail="ReCaptcha no válido")
 
     try:
-        return UsuarioService().login(db, payload.email, payload.password)
+        token_data = UsuarioService().login(db, payload.email, payload.password)
     except (NotFoundError, BadRequestError) as exc:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
+
+    # Establecer el token como cookie HttpOnly para persistir la sesión
+    response.set_cookie(
+        key="access_token",
+        value=token_data["access_token"],
+        httponly=True,
+        secure=not settings.DEBUG,  # True en producción (HTTPS)
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return token_data
+
+
+# ------------------------
+# VERIFICAR SESIÓN ACTUAL
+# ------------------------
+@router.get("/me", response_model=UsuarioResponse)
+def get_me(current_user: Usuario = Depends(get_current_user)):
+    return current_user
+
+
+# ------------------------
+# CERRAR SESIÓN
+# ------------------------
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+    )
+    return {"message": "Sesión cerrada correctamente"}
 
 # ------------------------
 # RECUPERACIÓN DE CONTRASEÑA
@@ -62,19 +100,4 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
     except (BadRequestError, NotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-# ------------------------
-# OTP (One Time Password)
-# ------------------------
-
-
-# @router.post("/request-otp")
-# async def request_otp(payload: PasswordResetRequest, db: Session = Depends(get_db)):
-#     return await UsuarioService().send_otp_email(db, payload.email)
-
-# @router.post("/verify-otp", response_model=Token)
-# def verify_otp(payload: LoginRequest, db: Session = Depends(get_db)):
-#     try:
-#         return UsuarioService().verify_otp_and_login(db, payload.email, payload.password)
-#     except BadRequestError as exc:
-#         raise HTTPException(status_code=400, detail=str(exc))
 
