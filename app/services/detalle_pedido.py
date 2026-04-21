@@ -17,6 +17,12 @@ class DetallePedidoService:
             raise NotFoundError(f"DetallePedido con id {detalle_id} no encontrado")
         return detalle
     
+    def get_by_pedido(self, db: Session, pedido_id: int) -> List[DetallePedido]:
+        """
+        Retorna todos los productos de un pedido específico sin importar su estado.
+        """
+        return self.repo.get_by_pedido(db, pedido_id)
+
     def get_all(self, db: Session, skip: int = 0, limit: int = 100) -> List[DetallePedido]:
         """
         Obtiene los detalles filtrados para el cocinero (Pendientes/Preparando)

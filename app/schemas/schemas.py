@@ -111,6 +111,8 @@ class DetallePedidoUpdate(BaseModel):
 class DetallePedidoResponse(BaseModel):
     """Respuesta con detalles completos de un item del pedido"""
     id: int
+    pedido_id: int
+    numero_mesa: Optional[int] = None
     producto_id: int
     producto: Optional[ProductoSimple] = None 
     cantidad: int

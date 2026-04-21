@@ -25,6 +25,21 @@ def list_detalles(
     return service.get_all(db)
 
 
+@router.get("/pedido/{pedido_id}", response_model=List[DetallePedidoResponse])
+def list_detalles_por_pedido(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    _current_user = Depends(get_current_active_user)
+):
+    """
+    **PRODUCTOS DE UN PEDIDO**
+
+    Devuelve todos los ítems (productos) asociados a un `pedido_id` específico,
+    sin importar su estado. Útil para la vista de detalle de un pedido en cocina o en sala.
+    """
+    return service.get_by_pedido(db, pedido_id)
+
+
 @router.get("/{detalle_id}", response_model=DetallePedidoResponse)
 def get_detalle(
     detalle_id: int, 

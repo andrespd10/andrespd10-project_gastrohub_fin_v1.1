@@ -93,6 +93,13 @@ class DetallePedido(Base):
     pedido = relationship("Pedido", back_populates="detalles")
     producto = relationship("Producto", back_populates="detalles")
 
+    @property
+    def numero_mesa(self) -> int | None:
+        """Devuelve el número de mesa a través de la relación pedido → mesa."""
+        if self.pedido and self.pedido.mesa:
+            return self.pedido.mesa.numero
+        return None
+
 
 # =========================
 # PAGO
