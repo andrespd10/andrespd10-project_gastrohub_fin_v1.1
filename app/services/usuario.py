@@ -18,8 +18,10 @@ class UsuarioService:
     # ------------------------
     def login(self, db: Session, email: str, password: str):
         user = self.repo.get_by_email(db, email)
-        if not user or not user.activo or not verify_password(password, user.password):
+        if not user or not verify_password(password, user.password):
             raise BadRequestError("Credenciales inválidas")
+        if not user.activo:
+            raise ForbiddenError("El usuario no se encuentra habilitado para ingresar a la plataforma")
         
         token = create_token(subject=user.email, token_type=TokenType.ACCESS, user_id=user.id)
         return {"access_token": token, "token_type": "bearer"}

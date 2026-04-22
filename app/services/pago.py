@@ -1,3 +1,5 @@
+from datetime import date, datetime, time
+
 from sqlalchemy.orm import Session
 
 from app.models import Pago
@@ -46,3 +48,14 @@ class PagoService:
 
     def get_all(self, db: Session, skip: int = 0, limit: int = 100):
         return self.repo.get_all(db, skip=skip, limit=limit)
+
+    def filter_by_date_range(
+        self, db: Session, fecha_inicio: date, fecha_fin: date
+    ) -> list[Pago]:
+        if fecha_inicio > fecha_fin:
+            raise BadRequestError(
+                "La fecha de inicio no puede ser mayor que la fecha de fin"
+            )
+        inicio_dt = datetime.combine(fecha_inicio, time.min)
+        fin_dt = datetime.combine(fecha_fin, time.max)
+        return self.repo.filter_by_date_range(db, inicio_dt, fin_dt)

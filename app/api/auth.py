@@ -42,7 +42,9 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
 
     try:
         token_data = UsuarioService().login(db, payload.email, payload.password)
-    except (NotFoundError, BadRequestError) as exc:
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except (NotFoundError, BadRequestError):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
     # Establecer el token como cookie HttpOnly para persistir la sesión
