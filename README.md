@@ -1,6 +1,6 @@
 ﻿# GastroHub - Sistema POS para Restaurantes
 
-**GastroHub** es un sistema integral de Punto de Venta (POS) para restauración, diseñado para optimizar la operación entre meseros, cocina y administración.
+**GastroHub** es un sistema integral de Punto de Venta (POS) para restaurantes, diseñado para optimizar la operación entre meseros, cocina y administración.
 
 ## Arquitectura del Sistema
 
@@ -14,14 +14,17 @@ GastroHub usa una arquitectura en capas bien definida:
 ##  Instalación Paso a Paso
 
 ### 1. Clonar el repositorio
-```bash
-git clone https://github.com/andrespd10/andrespd10-project_gastrohub_fin.git
+
+git clone https://github.com/andrespd10/andrespd10-project_gastrohub_fin_v1.1.git
+
+# Entras a la carpeta que acabas de clonar y abres el visual studio code parado en esa ruta
+
 cd andrespd10-project_gastrohub_fin
-```
 
 ### 2. Crear y activar entorno virtual
 ```bash
 python -m venv .venv
+
 .venv\Scripts\activate  # Windows
 # source .venv/bin/activate  # macOS/Linux
 ```
@@ -34,37 +37,80 @@ pip install -r requirements.txt
 
 ### 4. Configurar `.env`
 
-Crea un archivo `.env` en la raíz del proyecto: .env
-DATABASE_URL=mysql+pymysql://<usuario>:<password>@127.0.0.1:3306/gastrohub_db
-SECRET_KEY=una_frase_larga_y_secreta
+Crea un archivo `.env` en la raíz del proyecto llamado: .env
+
+A continuacion pega este codigo en el archivo .env y si necesitas cambiar db_user o db_host o el db_port haces esos cambios manuales asi como tambien si deseas cambiar el nombre si no lo dejas por defecto y solo cambias las credenciales a continuaciion copia todo este codigo y lo pegas en el archivo .env
+
+# Principio del archivo .env
+
+# GastroHub configuration
+
+# Credenciales de la base de datos
+
+DB_USER=root
+DB_PASSWORD="tus credenciales"
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=gastrohub_project_db
+
+DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+
+SECRET_KEY=8f3kjsd89f7sd98f7sdf98sdf7sdf9sdf87sdf
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 RESET_TOKEN_EXPIRE_MINUTES=15
-RATE_LIMIT_PER_MINUTE=60
-RATE_LIMIT_LOGIN=3
-RATE_LIMIT_STORAGE_URL=memory://
+    
+ALLOWED_HOSTS=http://localhost:4200,http://127.0.0.1:4200,http://localhost,http://127.0.0.1
+
+
+
 DEBUG=True
-ALLOWED_HOSTS=127.0.0.1,localhost
-MAIL_FROM=test@gastrohub.com
-MAIL_ENABLED=False
-```
+
+# Nueva variable para el motor de límites
+RATE_LIMIT_STORAGE_URL=memory://
+RATE_LIMIT_PER_MINUTE=60
+RATE_LIMIT_LOGIN=25
+
+# --- RECAPTCHA ---
+RECAPTCHA_SECRET_KEY=6LeetK0sAAAAAERMv3B2h32JAppKqmGfKTAaW0j4
+RECAPTCHA_VERIFY_URL=https://www.google.com/recaptcha/api/siteverify
+
+
+
+# Configuración de Gmail Real
+MAIL_USERNAME=criollofleider@gmail.com
+MAIL_PASSWORD=jwfn ieqs pzfd wiib
+MAIL_FROM=criollofleider@gmail.com
+MAIL_PORT=587
+MAIL_SERVER=smtp.gmail.com
+MAIL_STARTTLS=True
+MAIL_SSL_TLS=False
+MAIL_ENABLED=True
+
+# frontend
+FRONTEND_URL=http://localhost:4200
+
+# Fin del archivo .env
+
 
 ### 5. Iniciar bases de datos y semilla
 Asegúrate de que el servicio MySQL (Workbench) esté activo. Luego:
 bash
 # Crea la base de datos si no existe (desde MySQL client o Workbench)
 
-# CREATE DATABASE gastrohub_db;
+CREATE DATABASE gastrohub_db;
 
-# Configura el .env con las credenciales BD
+# Configura el .env con las credenciales de tu Base de Datos
 
-# Ejecuta la app para crear las tablas, esto lo haces en la terminal con:
+# Ejecuta la app para crear las tablas, esto lo haces en la terminal dentro del proyecto en visual studio code con:
 
 uvicorn app.main:app --reload --port 3000
 
-"Al ejecutar la app por primera vez, SQLAlchemy creará las tablas automáticamente. Luego, detén el servidor (Ctrl + C) y ejecuta el script para cargar los datos iniciales:"
+"Al ejecutar la app por primera vez, SQLAlchemy creará las tablas automáticamente. Luego, detén el servidor (Ctrl + C) y ejecuta el script para cargar los datos iniciales (la semilla de datos):"
 
-A continuacion corres la semilla las bases de datos para insertar usuarios, mesas y productos a la BD para las respectivas pruebas esto lo haces en la terminal con el cmoando:
+# Ejecutar semilla de base de datos
+
+A continuacion corres la semilla las bases de datos que esta en la carpeta (scrip/seed.py) para insertar usuarios, mesas y productos a la BD para las respectivas pruebas esto lo haces en la terminal con el comando:
 
 python scripts/seed.py
 
@@ -163,6 +209,8 @@ Ahora si vuelve a correr el servidor de nuevo con uvicorn app.main:app --reload 
 - MySQL + Workbench (confirmar que el servicio esté activo y la DB creada)
 - Cadena de conexión en `.env` en formato `mysql+pymysql://user:pass@host:3306/dbname`
 - Se usa SQLAlchemy `Base.metadata.create_all(bind=engine)` para crear tablas automáticamente
+
+Muchas gracias por llegar hasta aqui.
 
 
 **Desarrollado con enfoque técnico y profesional para el proyecto de grado SENA**
